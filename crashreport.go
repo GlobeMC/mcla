@@ -140,6 +140,31 @@ func parseStacktrace(sc *bufio.Scanner)(st Stacktrace){
 	return
 }
 
+type JavaError struct {
+	Class      string     `json:"class"`
+	Message    string     `json:"message"`
+	Stacktrace Stacktrace `json:"stacktrace"`
+	CausedBy   *JavaError `json:"caused_by"`
+}
+
+func parseJavaError(sc *bufio.Scanner)(je *JavaError){
+	if !sc.Scan() {
+		return
+	}
+	je = new(JavaError)
+	line := sc.Text()
+	i := strings.IndexByte(line, ':')
+	if i == -1 {
+		je.Message = line
+	}else{
+		je.Class, je.Message = line[:i], strings.TrimSpace(line[i + 1:])
+	}
+	je.Stacktrace = parseStacktrace(sc)
+	// TODO: parse "caused by:"
+	je.CausedBy = nil
+	return
+}
+
 // -- Head --
 type HeadThread struct {
 	Thread     string     `json:"thread"`
@@ -256,9 +281,7 @@ func parseSystemDetails(sc *bufio.Scanner)(res SystemDetails, err error){
 
 type CrashReport struct {     // ---- Minecraft Crash Report ----
 	Description   string        `json:"description"`    // Description:
-	ErrorClass    string        `json:"error_class"`
-	ErrorMessage  string        `json:"error_message"`
-	ErrStacktrace Stacktrace    `json:"error_stacktrace"`
+	Error         *JavaError    `json:"error"`
 	HeadThread    HeadThread    `json:"head"`           // -- Head --
 	AffectedLevel AffectedLevel `json:"affected_level"` // -- Affected level --
 	LastReload    LastReload    `json:"last_reload"`    // -- Last reload --
@@ -269,7 +292,10 @@ func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
 	sc := bufio.NewScanner(r) // default is scan lines
 	for {
 		if !sc.Scan() {
-			return nil, sc.Err()
+			if err = sc.Err(); err == nil {
+				err = io.EOF
+			}
+			return
 		}
 		if strings.HasPrefix(strings.ToUpper(sc.Text()), crashReportHeader) {
 			break
@@ -287,20 +313,7 @@ func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
 		switch {
 		case len(uline) == 0 && flag == 1:
 			flag = 2
-			if !sc.Scan() {
-				return
-			}
-			line = sc.Text()
-			if !sc.Scan() {
-				return
-			}
-			i := strings.IndexByte(line, ':')
-			if i == -1 {
-				report.ErrorMessage = line
-			}else{
-				report.ErrorClass, report.ErrorMessage = line[:i], strings.TrimSpace(line[i + 1:])
-			}
-			report.ErrStacktrace = parseStacktrace(sc)
+			report.Error = parseJavaError(sc)
 		case strings.HasPrefix(uline, descriptionHeader):
 			if flag != 0 {
 				return nil, errors.New("Key `Description` duplicated")
