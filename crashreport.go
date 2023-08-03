@@ -256,6 +256,9 @@ func parseSystemDetails(sc *bufio.Scanner)(res SystemDetails, err error){
 
 type CrashReport struct {     // ---- Minecraft Crash Report ----
 	Description   string        `json:"description"`    // Description:
+	ErrorClass    string        `json:"error_class"`
+	ErrorMessage  string        `json:"error_message"`
+	ErrStacktrace Stacktrace    `json:"error_stacktrace"`
 	HeadThread    HeadThread    `json:"head"`           // -- Head --
 	AffectedLevel AffectedLevel `json:"affected_level"` // -- Affected level --
 	LastReload    LastReload    `json:"last_reload"`    // -- Last reload --
@@ -277,15 +280,36 @@ func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
 		return
 	}
 	var line string
+	var flag int = 0
 	for {
 		line = sc.Text()
 		uline := strings.ToUpper(line)
 		switch {
+		case len(uline) == 0 && flag == 1:
+			flag = 2
+			if !sc.Scan() {
+				return
+			}
+			line = sc.Text()
+			if !sc.Scan() {
+				return
+			}
+			i := strings.IndexByte(line, ':')
+			if i == -1 {
+				report.ErrorMessage = line
+			}else{
+				report.ErrorClass, report.ErrorMessage = line[:i], strings.TrimSpace(line[i + 1:])
+			}
+			report.ErrStacktrace = parseStacktrace(sc)
 		case strings.HasPrefix(uline, descriptionHeader):
+			if flag != 0 {
+				return nil, errors.New("Key `Description` duplicated")
+			}
 			report.Description = strings.TrimSpace(line[len(descriptionHeader):])
 			if !sc.Scan() {
 				return
 			}
+			flag = 1
 		case strings.HasPrefix(uline, headThreadHeader):
 			if report.HeadThread, err = parseHeadThread(sc); err != nil {
 				return
