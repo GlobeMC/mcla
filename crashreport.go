@@ -63,10 +63,7 @@ func parseReportDetails0(sc *bufio.Scanner)(d ReportDetails, err error){
 			values []string
 		)
 		if line = bytes.TrimSpace(line[i + 1:]); len(line) > 0 {
-			values = strings.Split((string)(line), ";")
-			for i, v := range values {
-				values[i] = strings.TrimSpace(v)
-			}
+			values = []string{(string)(line)}
 		}
 		for {
 			if !sc.Scan() {
