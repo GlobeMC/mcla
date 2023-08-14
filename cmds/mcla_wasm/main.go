@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,40 +12,41 @@ import (
 	. "github.com/kmcsr/mcla"
 )
 
+var bgCtx context.Context
+
 type Map = map[string]any
+
+func asJsValue(v any)(res any){
+	buf, err := json.Marshal(v)
+	if err != nil {
+		throw(err)
+	}
+	if err = json.Unmarshal(buf, &res); err != nil {
+		throw(err)
+	}
+	return
+}
 
 func getAPI()(m Map){
 	return Map{
 		"version": version,
 		"parseCrashReport": js.FuncOf(func(_ js.Value, args []js.Value)(res any){
-			buf, err := json.Marshal(parseCrashReport(args))
-			if err != nil {
-				throw(err)
-			}
-			if err = json.Unmarshal(buf, &res); err != nil {
-				throw(err)
-			}
-			return
+			return asJsValue(parseCrashReport(args))
 		}),
 		"parseLogErrors": js.FuncOf(func(_ js.Value, args []js.Value)(res any){
-			buf, err := json.Marshal(parseLogErrors(args))
-			if err != nil {
-				throw(err)
-			}
-			if err = json.Unmarshal(buf, &res); err != nil {
-				throw(err)
-			}
-			return
+			return asJsValue(parseLogErrors(args))
 		}),
 	}
 }
 
 func main(){
-	exit := make(chan struct{}, 0)
+	var release context.CancelFunc
+	bgCtx, release = context.WithCancel(context.Background())
+
 	api := getAPI()
 	api["release"] = js.FuncOf(func(_ js.Value, _ []js.Value)(_ any){
 		global.Delete("MCLA")
-		close(exit)
+		release()
 		for _, v := range api {
 			if fn, ok := v.(js.Func); ok {
 				fn.Release()
@@ -53,9 +55,11 @@ func main(){
 		return js.Undefined()
 	})
 	global.Set("MCLA", api)
+
 	fmt.Printf("MCLA-%s loaded\n", version)
 	defer fmt.Printf("MCLA-%s unloaded\n", version)
-	<-exit
+
+	<-bgCtx.Done()
 }
 
 func parseCrashReport(args []js.Value)(report *CrashReport){
