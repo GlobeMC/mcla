@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"regexp"
 	"strings"
 )
 
@@ -17,34 +16,41 @@ var (
 
 var (
 	crashReportHeader   = strings.ToUpper("---- Minecraft Crash Report ----")
-	headThreadHeader    = strings.ToUpper("-- Head --")
-	affectedLevelHeader = strings.ToUpper("-- Affected level --")
-	lastReloadHeader    = strings.ToUpper("-- Last reload --")
-	systemDetailsHeader = strings.ToUpper("-- System Details --")
+	headThreadKey       = strings.ToUpper("Head")
+	affectedLevelKey    = strings.ToUpper("Affected level")
 	descriptionHeader   = strings.ToUpper("Description:")
 	detailsKeyHeader    = strings.ToUpper("Details:")
 	stacktraceHeader    = strings.ToUpper("Stacktrace:")
 	threadKeyHeader     = strings.ToUpper("Thread:")
 )
 
-var (
-	stackInfoMatcher = regexp.MustCompile(`^\s*at\s+([\w\d$_]+(?:\.[\w\d$_]+)*)\.([\w\d$_<>]+)`)
-)
+
+func hasIndent(line []byte)(bool){
+	return bytes.HasPrefix(line, ([]byte)("\t")) || bytes.HasPrefix(line, ([]byte)("  "))
+}
+
+func hasDbIndent(line []byte)(bool){
+	return bytes.HasPrefix(line, ([]byte)("\t\t")) || bytes.HasPrefix(line, ([]byte)("    "))
+}
 
 // Details:
 type ReportDetails map[string][]string
 
 func parseReportDetails(sc *bufio.Scanner)(d ReportDetails, err error){
-	d = make(ReportDetails)
 	if !sc.Scan() {
 		return
 	}
+	return parseReportDetails0(sc)
+}
+
+func parseReportDetails0(sc *bufio.Scanner)(d ReportDetails, err error){
+	d = make(ReportDetails)
 	line := sc.Bytes()
 	for {
-		if len(line) < 2 || line[0] != '\t' {
+		if len(line) < 2 || !hasIndent(line) {
 			return
 		}
-		if line[1] == '\t' {
+		if hasDbIndent(line) {
 			return nil, ErrUnexpectedIndent
 		}
 		line = line[1:]
@@ -57,7 +63,7 @@ func parseReportDetails(sc *bufio.Scanner)(d ReportDetails, err error){
 			values []string
 		)
 		if line = bytes.TrimSpace(line[i + 1:]); len(line) > 0 {
-			values = strings.Split((string)(line), ":")
+			values = strings.Split((string)(line), ";")
 			for i, v := range values {
 				values[i] = strings.TrimSpace(v)
 			}
@@ -67,11 +73,11 @@ func parseReportDetails(sc *bufio.Scanner)(d ReportDetails, err error){
 				d.set(key, values)
 				return
 			}
-			if line = sc.Bytes(); len(line) < 2 || line[0] != '\t' {
+			if line = sc.Bytes(); len(line) < 2 || !hasIndent(line) {
 				d.set(key, values)
 				return
 			}
-			if line[1] != '\t' {
+			if !hasDbIndent(line) {
 				d.set(key, values)
 				break
 			}
@@ -101,69 +107,6 @@ func (d ReportDetails)GetValues(key string)(values []string){
 	return d[strings.ToUpper(key)]
 }
 
-
-type (
-	StackInfo struct {
-		Raw     string `json:"raw"`
-		Class   string `json:"class"`
-		Method  string `json:"method"`
-	}
-
-	// Stacktrace:
-	Stacktrace []StackInfo
-)
-
-func parseStackInfoFrom(line string)(s StackInfo, ok bool){
-	res := stackInfoMatcher.FindStringSubmatch(line)
-	if res == nil {
-		return
-	}
-	s.Raw = line
-	s.Class = res[1]
-	s.Method = res[2]
-	ok = true
-	return
-}
-
-func parseStacktrace(sc *bufio.Scanner)(st Stacktrace){
-	var (
-		info StackInfo
-		ok bool
-	)
-	for sc.Scan() {
-		line := sc.Text()
-		if info, ok = parseStackInfoFrom(line); !ok {
-			return
-		}
-		st = append(st, info)
-	}
-	return
-}
-
-type JavaError struct {
-	Class      string     `json:"class"`
-	Message    string     `json:"message"`
-	Stacktrace Stacktrace `json:"stacktrace"`
-	CausedBy   *JavaError `json:"caused_by"`
-}
-
-func parseJavaError(sc *bufio.Scanner)(je *JavaError){
-	if !sc.Scan() {
-		return
-	}
-	je = new(JavaError)
-	line := sc.Text()
-	i := strings.IndexByte(line, ':')
-	if i == -1 {
-		je.Message = line
-	}else{
-		je.Class, je.Message = line[:i], strings.TrimSpace(line[i + 1:])
-	}
-	je.Stacktrace = parseStacktrace(sc)
-	// TODO: parse "caused by:"
-	je.CausedBy = nil
-	return
-}
 
 // -- Head --
 type HeadThread struct {
@@ -207,6 +150,7 @@ func parseAffectedLevel(sc *bufio.Scanner)(res AffectedLevel, err error){
 	if !sc.Scan() {
 		return
 	}
+	firstline := true
 	for {
 		line := strings.ToUpper(sc.Text())
 		switch {
@@ -214,6 +158,10 @@ func parseAffectedLevel(sc *bufio.Scanner)(res AffectedLevel, err error){
 			return
 		case strings.HasPrefix(line, detailsKeyHeader):
 			if res.Details, err = parseReportDetails(sc); err != nil {
+				return
+			}
+		case firstline && hasIndent(sc.Bytes()):
+			if res.Details, err = parseReportDetails0(sc); err != nil {
 				return
 			}
 		case strings.HasPrefix(line, stacktraceHeader):
@@ -223,18 +171,20 @@ func parseAffectedLevel(sc *bufio.Scanner)(res AffectedLevel, err error){
 				return
 			}
 		}
+		firstline = false
 	}
 	return
 }
 
-type LastReload struct {
+type DetailsItem struct {
 	Details ReportDetails `json:"details"`
 }
 
-func parseLastReload(sc *bufio.Scanner)(res LastReload, err error){
+func parseDetailsItem(sc *bufio.Scanner)(res DetailsItem, err error){
 	if !sc.Scan() {
 		return
 	}
+	firstline := true
 	for {
 		line := strings.ToUpper(sc.Text())
 		switch {
@@ -244,30 +194,8 @@ func parseLastReload(sc *bufio.Scanner)(res LastReload, err error){
 			if res.Details, err = parseReportDetails(sc); err != nil {
 				return
 			}
-		default:
-			if !sc.Scan() {
-				return
-			}
-		}
-	}
-	return
-}
-
-type SystemDetails struct {
-	Details ReportDetails `json:"details"`
-}
-
-func parseSystemDetails(sc *bufio.Scanner)(res SystemDetails, err error){
-	if !sc.Scan() {
-		return
-	}
-	for {
-		line := strings.ToUpper(sc.Text())
-		switch {
-		case strings.HasPrefix(line, "--"):
-			return
-		case strings.HasPrefix(line, detailsKeyHeader):
-			if res.Details, err = parseReportDetails(sc); err != nil {
+		case firstline && hasIndent(sc.Bytes()):
+			if res.Details, err = parseReportDetails0(sc); err != nil {
 				return
 			}
 		default:
@@ -275,17 +203,17 @@ func parseSystemDetails(sc *bufio.Scanner)(res SystemDetails, err error){
 				return
 			}
 		}
+		firstline = false
 	}
 	return
 }
 
 type CrashReport struct {     // ---- Minecraft Crash Report ----
-	Description   string        `json:"description"`    // Description:
+	Description   string        `json:"description"`     // Description:
 	Error         *JavaError    `json:"error"`
-	HeadThread    HeadThread    `json:"head"`           // -- Head --
-	AffectedLevel AffectedLevel `json:"affected_level"` // -- Affected level --
-	LastReload    LastReload    `json:"last_reload"`    // -- Last reload --
-	SystemDetails SystemDetails `json:"system_details"` // -- System Details --
+	HeadThread    HeadThread    `json:"head"`            // -- Head --
+	AffectedLevel AffectedLevel `json:"affected_level"`  // -- Affected level --
+	OtherDetails  map[string]DetailsItem `json:"others"` // -- <KEY> --
 }
 
 func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
@@ -301,7 +229,9 @@ func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
 			break
 		}
 	}
-	report = new(CrashReport)
+	report = &CrashReport{
+		OtherDetails: make(map[string]DetailsItem),
+	}
 	if !sc.Scan() {
 		return
 	}
@@ -323,21 +253,24 @@ func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
 				return
 			}
 			flag = 1
-		case strings.HasPrefix(uline, headThreadHeader):
-			if report.HeadThread, err = parseHeadThread(sc); err != nil {
-				return
-			}
-		case strings.HasPrefix(uline, affectedLevelHeader):
-			if report.AffectedLevel, err = parseAffectedLevel(sc); err != nil {
-				return
-			}
-		case strings.HasPrefix(uline, lastReloadHeader):
-			if report.LastReload, err = parseLastReload(sc); err != nil {
-				return
-			}
-		case strings.HasPrefix(uline, systemDetailsHeader):
-			if report.SystemDetails, err = parseSystemDetails(sc); err != nil {
-				return
+		case strings.HasPrefix(uline, "-- ") && strings.HasSuffix(uline, " --"):
+			name := strings.ToUpper((string)(uline[len("-- "):len(uline) - len(" --")]))
+			switch {
+			case name == headThreadKey:
+				if report.HeadThread, err = parseHeadThread(sc); err != nil {
+					return
+				}
+			case name == affectedLevelKey:
+				if report.AffectedLevel, err = parseAffectedLevel(sc); err != nil {
+					return
+				}
+				report.OtherDetails[affectedLevelKey] = DetailsItem{report.AffectedLevel.Details}
+			default:
+				var details DetailsItem
+				if details, err = parseDetailsItem(sc); err != nil {
+					return
+				}
+				report.OtherDetails[name] = details
 			}
 		default:
 			if !sc.Scan() {
@@ -346,4 +279,8 @@ func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
 		}
 	}
 	return
+}
+
+func (report *CrashReport)GetDetails(key string)(value DetailsItem){
+	return report.OtherDetails[strings.ToUpper(key)]
 }
