@@ -1,0 +1,9 @@
+
+# Mac OS
+.DS_Store
+
+# test
+/test
+
+# build
+/output
