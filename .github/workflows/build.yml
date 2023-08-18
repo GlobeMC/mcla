@@ -5,6 +5,17 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    #
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   build-wasm:
@@ -78,16 +89,14 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_dir: ./output
 
-  publish-pages:
+  deploy-pages:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs:
       - build-wasm
     steps:
-      -
-        name: Action Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: 'pages'
       -
         name: Download build-wasm output from artifact
         uses: actions/download-artifact@v2
@@ -101,10 +110,14 @@ jobs:
           name: build-wasm-exec-js
           path: .
       -
-        name: Commit and push
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add .
-          git commit -m "published"
-          git push
+        name: Setup Pages
+        uses: actions/configure-pages@v3
+      - name: Upload contents artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: .
+      -
+        name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
+
