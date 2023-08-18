@@ -41,7 +41,7 @@ jobs:
           prerelease: false
       -
         name: Upload Release Assets
-        uses: zyxkad/upload-release-asset-dir@
+        uses: zyxkad/upload-release-asset-dir@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_dir: ./output
