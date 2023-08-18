@@ -9,7 +9,7 @@ function sleep(ms){
 
 (async function(){
 	const go = new Go()
-	const MCLA_WASM_URL = 'https://github.com/kmcsr/mcla/releases/download/v0.1.2/mcla.wasm'
+	const MCLA_WASM_URL = 'https://kmcsr.github.io/mcla/mcla.wasm'
 
 	const res = await WebAssembly.instantiateStreaming(fetch(MCLA_WASM_URL), go.importObject)
 	go.run(res.instance)
