@@ -7,7 +7,7 @@ on:
       - 'v*'
 
 jobs:
-  release-docker-images:
+  build-wasm:
     runs-on: ubuntu-latest
     steps:
       -
