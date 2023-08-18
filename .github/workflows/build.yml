@@ -51,13 +51,13 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: build-wasm-output
-          path: output/mcla.wasm
+          path: output
       -
         name: Download tinygo wasm_exec from artifact
         uses: actions/download-artifact@v2
         with:
           name: build-wasm-exec-js
-          path: output/wasm_exec.js
+          path: output
       -
         name: Create Release
         id: create_release
@@ -93,13 +93,13 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: build-wasm-output
-          path: mcla.wasm
+          path: .
       -
         name: Download tinygo wasm_exec from artifact
         uses: actions/download-artifact@v2
         with:
           name: build-wasm-exec-js
-          path: wasm_exec.js
+          path: .
       -
         name: Commit and push
         run: |
