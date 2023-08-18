@@ -29,6 +29,34 @@ jobs:
           /usr/bin/env bash ./cmds/mcla_wasm/build.sh -o ./output/mcla.wasm -ldflags="-X 'main.version=${RELEASE_VERSION}'"
           cp ./cmds/mcla_wasm/wasm_exec.js ./output/wasm_exec.js
       -
+        name: Upload build output to artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-wasm-output
+          path: output/mcla.wasm
+      -
+        name: Upload tinygo wasm_exec to artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-wasm-exec-js
+          path: output/wasm_exec.js
+
+  publish-release:
+    runs-on: ubuntu-latest
+    needs:
+      - build-wasm
+    steps:
+      -
+        name: Download build-wasm output from artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: build-wasm-output
+      -
+        name: Download tinygo wasm_exec from artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: build-wasm-exec-js
+      -
         name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -47,3 +75,34 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_dir: ./output
+
+  publish-pages:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Action Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: 'pages'
+      -
+        name: Download build-wasm output from artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: build-wasm-output
+      -
+        name: Download tinygo wasm_exec from artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: build-wasm-exec-js
+      -
+        name: Move the outputs
+        run: |
+          cp ./output/* ./
+      -
+        name: Commit and push
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m "published"
+          git push
