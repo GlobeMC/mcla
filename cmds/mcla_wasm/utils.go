@@ -3,16 +3,66 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"io"
 	"strings"
 	"syscall/js"
 )
 
-type uint8ArrayReader struct {
-	value js.Value
+type Map = map[string]any
+
+func asJsValue(v any)(res js.Value){
+	if v == nil {
+		return js.Null()
+	}
+	if v0, ok := v.(js.Value); ok {
+		return v0
+	}
+	if e, ok := v.(js.Error); ok {
+		return e.Value
+	}
+	buf, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	var v1 any
+	if err = json.Unmarshal(buf, &v1); err != nil {
+		panic(err)
+	}
+	return js.ValueOf(v1)
 }
 
+type readCloser struct {
+	io.Reader
+}
+
+var _ io.ReadCloser = readCloser{}
+
+func (r readCloser)Close()(err error){
+	if c, ok := r.Reader.(io.Closer); ok {
+		return c.Close()
+	}
+	return
+}
+
+type (
+	uint8ArrayReader struct {
+		value js.Value
+	}
+	readableStreamDefaultReaderWrapper struct {
+		off   int
+		buf   *uint8ArrayReader
+		value js.Value
+	}
+	readableStreamBYOBReaderWrapper struct {
+		value js.Value
+	}
+)
+
 var _ io.ReaderAt = uint8ArrayReader{}
+var _ io.ReadCloser = readableStreamDefaultReaderWrapper{}
+// var _ io.Reader = readableStreamBYOBReaderWrapper{} // TODO if necessary
 
 func (r uint8ArrayReader)ReadAt(buf []byte, offset int64)(n int, err error){
 	sub := r.value.Call("subarray", (int)(offset), (int)(offset) + len(buf))
@@ -20,6 +70,42 @@ func (r uint8ArrayReader)ReadAt(buf []byte, offset int64)(n int, err error){
 	if n != len(buf) {
 		err = io.EOF
 	}
+	return
+}
+
+func (r readableStreamDefaultReaderWrapper)readFromInternalBuf(buf []byte)(n int, err error){
+	if r.buf != nil {
+		n, err = r.buf.ReadAt(buf, (int64)(r.off))
+		r.off += n
+		if err == io.EOF {
+			r.off = 0
+			r.buf = nil
+		}
+	}
+	return
+}
+
+func (r readableStreamDefaultReaderWrapper)Read(buf []byte)(n int, err error){
+	if len(buf) == 0 {
+		return
+	}
+	if n, err = r.readFromInternalBuf(buf); n != 0 || err != nil {
+		return
+	}
+	res, err := awaitPromise(r.value.Call("read"))
+	if err != nil {
+		return
+	}
+	if res.Get("done").Bool() {
+		return 0, io.EOF
+	}
+	r.buf = &uint8ArrayReader{res.Get("value")}
+	return r.readFromInternalBuf(buf)
+}
+
+func (r readableStreamDefaultReaderWrapper)Close()(err error){
+	awaitPromise(r.value.Call("cancel"))
+	r.value.Call("releaseLock")
 	return
 }
 
@@ -31,72 +117,95 @@ func wrapJsValueAsReader(value js.Value)(r io.Reader){
 		if value.InstanceOf(Uint8Array) {
 			return io.NewSectionReader(uint8ArrayReader{value}, 0, (1 <<  63) - 1)
 		}
+		if value.InstanceOf(ReadableStream) {
+			value = value.Call("getReader"/*, Map{ "mode": "byob" } TODO*/)
+		}
+		if value.InstanceOf(ReadableStreamDefaultReader) {
+			return readableStreamDefaultReaderWrapper{ value: value }
+		}
+		// if value.InstanceOf(ReadableStreamBYOBReader) { // TODO
+		// 	return readableStreamBYOBReaderWrapper{ value }
+		// }
 	}
-	throw("Unexpect value type " + value.Type().String())
+	panic("Unexpect value type " + value.Type().String())
 	return
 }
 
-func lcsSplit[T comparable](a, b []T)(n int, a1, a2, b1, b2 []T){
-	if len(a) == 0 || len(b) == 0 {
-		return 0, a, nil, b, nil
+// have to ensure the argument is a really JS Promise instance
+func wrapPromise(promise js.Value)(done <-chan js.Value, err <-chan error){
+	done0 := make(chan js.Value, 1)
+	err0 := make(chan error, 1)
+
+	var success, failed	js.Func
+	success = js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+		done0 <- args[0]
+		return
+	})
+	failed = js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+		err0 <- js.Error{args[0]}
+		return
+	})
+	promise.Call("then", success).Call("catch", failed)
+	return done0, err0
+}
+
+func awaitPromiseContext(ctx context.Context, promise js.Value)(res js.Value, err error){
+	if promise.Type() != js.TypeObject || !promise.InstanceOf(Promise) {
+		return promise, nil
 	}
-	type ele struct {
-		a, b int
-		len int
-	}
-	ch := make([]ele, len(b) + 1)
-	for i, p := range a {
-		var last ele
-		for j, q := range b {
-			cur := ch[j+1]
-			if p == q {
-				if last.len == 0 {
-					last = ele{i, j, 1}
-				}else if last.a + last.len == i && last.b + last.len == j {
-					last.len++
-				}
-				ch[j + 1] = last
-			}else if prev := ch[j]; prev.len > cur.len {
-				ch[j + 1] = prev
-			}
-			last = cur
-		}
-	}
-	res := ch[len(b)]
-	if res.len == 0 {
+	done, errCh := wrapPromise(promise)
+	select {
+	case res = <-done:
+		return
+	case err = <-errCh:
+		return
+	case <-ctx.Done():
+		err = ctx.Err()
 		return
 	}
-	return res.len, a[:res.a], a[res.a + res.len:], b[:res.b], b[res.b + res.len:]
 }
 
-func lcsLength[T comparable](a, b []T)(n int){
-	if len(a) == 0 || len(b) == 0 {
-		return 0
+func awaitPromise(promise js.Value)(res js.Value, err error){
+	return awaitPromiseContext(bgCtx, promise)
+}
+
+func asyncFuncOf(fn func(this js.Value, args []js.Value)(res any))(js.Func){
+	return js.FuncOf(func(this js.Value, args []js.Value)(res any){
+		var resolve, reject js.Value
+		pcb := js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+			resolve, reject = args[0], args[1]
+			return
+		})
+		res = Promise.New(pcb)
+		pcb.Release()
+		go func(){
+			defer func(){
+				if e := recover(); e != nil {
+					if je, ok := e.(js.Error); ok {
+						reject.Invoke(je.Value)
+					}else if er, ok := e.(error); ok {
+						reject.Invoke(er.Error())
+					}else{
+						reject.Invoke(asJsValue(e))
+					}
+				}
+			}()
+			res := fn(this, args)
+			resolve.Invoke(asJsValue(res))
+		}()
+		return
+	})
+}
+
+func foreachJsIterator(iterator js.Value, callback func(js.Value)(error))(err error){
+	for {
+		res := iterator.Call("next")
+		if !res.Get("done").Bool() {
+			break
+		}
+		if err = callback(res.Get("value")); err != nil {
+			return
+		}
 	}
-	n, a1, a2, b1, b2 := lcsSplit(a, b)
-	n += lcsLength(a1, b1) + lcsLength(a2, b2)
 	return
-}
-
-func lcsPercent[T comparable](a, b []T)(v float32){
-	if len(b) > len(a) {
-		a, b = b, a
-	}
-	if len(b) == 0 {
-		return 0.0
-	}
-	n := (float32)(lcsLength(a, b))
-	return n / (float32)(len(a))
-}
-
-func splitWords(line string)(words []string){
-	words = strings.Fields(line)
-	for i, w := range words {
-		words[i] = strings.Trim(w, ",.") // remove punctuation marks
-	}
-	return
-}
-
-func lineSamePercent(a, b string)(float32){
-	return lcsPercent(splitWords(a), splitWords(b))
 }

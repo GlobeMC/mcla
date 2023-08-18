@@ -37,16 +37,26 @@ func parseStackInfoFrom(line string)(s StackInfo, ok bool){
 }
 
 func parseStacktrace(sc *bufio.Scanner)(st Stacktrace){
+	if !sc.Scan() {
+		return
+	}
+	return parseStacktrace0(sc)
+}
+
+func parseStacktrace0(sc *bufio.Scanner)(st Stacktrace){
 	var (
 		info StackInfo
 		ok bool
 	)
-	for sc.Scan() {
+	for {
 		line := sc.Text()
 		if info, ok = parseStackInfoFrom(line); !ok {
 			return
 		}
 		st = append(st, info)
+		if !sc.Scan() {
+			return
+		}
 	}
 	return
 }
@@ -90,13 +100,28 @@ func ScanJavaErrors(r io.Reader)(errs []*JavaError){
 	for {
 		line = sc.Text()
 		emsg := javaErrorMatcher.FindStringSubmatch(line)
+		if !sc.Scan() {
+			break
+		}
 		if emsg == nil {
+			continue
+		}
+		for {
+			l2 := sc.Text()
+			if stackInfoMatcher.MatchString(l2) {
+				break
+			}
+			if em := javaErrorMatcher.FindStringSubmatch(l2); em != nil {
+				line = l2
+				emsg = em
+			}else{
+				emsg[2] += "\n" + l2
+			}
 			if !sc.Scan() {
 				break
 			}
-			continue
 		}
-		st := parseStacktrace(sc)
+		st := parseStacktrace0(sc)
 		if st != nil { // if stacktrace exists 
 			je := &JavaError{
 				Class: emsg[1],
