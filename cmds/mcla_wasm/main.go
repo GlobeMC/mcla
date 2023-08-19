@@ -31,6 +31,11 @@ func getAPI()(m Map){
 		"analyzeLogErrors": asyncFuncOf(func(_ js.Value, args []js.Value)(res any){
 			return analyzeLogErrors(args)
 		}),
+		"setGhDbPrefix": js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+			prefix := args[0]
+			defaultErrDB.Prefix = prefix.String()
+			return
+		}),
 	}
 }
 

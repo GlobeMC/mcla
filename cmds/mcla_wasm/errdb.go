@@ -172,7 +172,7 @@ func (*ghErrDB)GetSolution(id int)(*SolutionDesc){
 }
 
 var defaultErrDB = &ghErrDB{
-	Prefix: "https://raw.githubusercontent.com/kmcsr/mcla-db-dev/main/",
+	Prefix: "https://raw.githubusercontent.com/kmcsr/mcla-db-dev/main",
 }
 
 var defaultAnalyzer = &Analyzer{
