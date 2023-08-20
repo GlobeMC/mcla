@@ -24,7 +24,7 @@ func NewAnalyzer(db ErrorDB)(a *Analyzer){
 	}
 }
 
-func (a *Analyzer)DoError(jerr *JavaError)(sols []SolutionPossibility, err error){
+func (a *Analyzer)DoError(jerr *JavaError)(matched []SolutionPossibility, err error){
 	for jerr != nil {
 		epkg, ecls := rsplit(jerr.Class, '.')
 		a.DB.ForEachErrors(func(e *ErrorDesc)(err error){
@@ -52,14 +52,14 @@ func (a *Analyzer)DoError(jerr *JavaError)(sols []SolutionPossibility, err error
 				}
 			}
 			if sol.Match >= 0.5 { // at least have 50% matches
-				sols = append(sols, sol)
+				matched = append(matched, sol)
 			}
 			return
 		})
 		jerr = jerr.CausedBy
 	}
-	if sols == nil {
-		sols = make([]SolutionPossibility, 0)
+	if matched == nil {
+		matched = make([]SolutionPossibility, 0)
 	}
 	return
 }

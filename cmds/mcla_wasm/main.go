@@ -79,16 +79,16 @@ func parseLogErrors(args []js.Value)(errs []*JavaError){
 	return
 }
 
-type logErrRes struct {
-	Error     *JavaError            `json:"error"`
-	Solutions []SolutionPossibility `json:"solutions"`
+type ErrorResult struct {
+	Error   *JavaError            `json:"error"`
+	Matched []SolutionPossibility `json:"matched"`
 }
 
-func analyzeLogErrors(args []js.Value)(result []logErrRes){
+func analyzeLogErrors(args []js.Value)(result []ErrorResult){
 	value := args[0]
 	r := wrapJsValueAsReader(value)
 	errs := ScanJavaErrors(r)
-	result = make([]logErrRes, len(errs))
+	result = make([]ErrorResult, len(errs))
 
 	ctx, cancel := context.WithCancelCause(bgCtx)
 	doneCh := make(chan struct{}, len(errs))
@@ -98,11 +98,11 @@ func analyzeLogErrors(args []js.Value)(result []logErrRes){
 				doneCh <- struct{}{}
 			}()
 			var (
-				res logErrRes
+				res ErrorResult
 				err error
 			)
 			res.Error = jerr
-			if res.Solutions, err = defaultAnalyzer.DoError(jerr); err != nil {
+			if res.Matched, err = defaultAnalyzer.DoError(jerr); err != nil {
 				cancel(err)
 				return
 			}
