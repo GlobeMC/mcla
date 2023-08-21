@@ -6,8 +6,8 @@ import (
 )
 
 type SolutionPossibility struct {
-	Solutions []int   `json:"solutions"`
-	Match     float32 `json:"match"`
+	ErrorDesc *ErrorDesc `json:"error_desc"`
+	Match     float32    `json:"match"`
 }
 
 var (
@@ -29,7 +29,7 @@ func (a *Analyzer)DoError(jerr *JavaError)(matched []SolutionPossibility, err er
 		epkg, ecls := rsplit(jerr.Class, '.')
 		a.DB.ForEachErrors(func(e *ErrorDesc)(err error){
 			sol := SolutionPossibility{
-				Solutions: e.Solutions,
+				ErrorDesc: e,
 			}
 			epkg2, ecls2 := rsplit(e.Error, '.')
 			ignoreErrorTyp := len(ecls2) == 0 || ecls2 == "*"
