@@ -9,6 +9,7 @@ import (
 var (
 	global = js.Global()
 	// class
+	Object         = global.Get("Object")
 	Promise        = global.Get("Promise")
 	Uint8Array     = global.Get("Uint8Array")
 	ReadableStream = global.Get("ReadableStream")

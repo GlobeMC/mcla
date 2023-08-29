@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"syscall/js"
 
 	. "github.com/kmcsr/mcla"
@@ -31,9 +32,14 @@ func getAPI()(m Map){
 		"analyzeLogErrors": asyncFuncOf(func(_ js.Value, args []js.Value)(res any){
 			return analyzeLogErrors(args)
 		}),
+		"analyzeLogErrorsIter": asyncFuncOf(func(_ js.Value, args []js.Value)(res any){
+			return analyzeLogErrorsIter(args)
+		}),
 		"setGhDbPrefix": js.FuncOf(func(_ js.Value, args []js.Value)(res any){
 			prefix := args[0]
-			defaultErrDB.Prefix = prefix.String()
+			prefixStr := prefix.String()
+			fmt.Printf("Set database as %q\n", prefixStr)
+			defaultErrDB.Prefix = prefixStr
 			return
 		}),
 	}
@@ -44,11 +50,6 @@ func main(){
 	api["release"] = js.FuncOf(func(_ js.Value, _ []js.Value)(_ any){
 		global.Delete("MCLA")
 		releaseBgCtx()
-		for _, v := range api {
-			if fn, ok := v.(js.Func); ok {
-				fn.Release()
-			}
-		}
 		return js.Undefined()
 	})
 	global.Set("MCLA", api)
@@ -116,5 +117,39 @@ func analyzeLogErrors(args []js.Value)(result []ErrorResult){
 			panic(ctx.Err())
 		}
 	}
+	return
+}
+
+func analyzeLogErrorsIter(args []js.Value)(iterator js.Value){
+	value := args[0]
+	r := wrapJsValueAsReader(value)
+	result := make(chan ErrorResult, 3)
+	ctx, cancel := context.WithCancelCause(bgCtx)
+	iterator = NewChannelIteratorContext(ctx, result)
+	go func(){
+		defer close(result)
+		var wg sync.WaitGroup
+		errCh := ScanJavaErrorsIntoChan(r)
+		for jerr := range errCh {
+			wg.Add(1)
+			go func(){
+				defer wg.Done()
+				var (
+					res ErrorResult
+					err error
+				)
+				res.Error = jerr
+				if res.Matched, err = defaultAnalyzer.DoError(jerr); err != nil {
+					cancel(err)
+					return
+				}
+				select {
+				case result <- res:
+				case <-bgCtx.Done():
+				}
+			}()
+		}
+		wg.Wait()
+	}()
 	return
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"reflect"
 	"strings"
 	"syscall/js"
 )
@@ -22,6 +23,14 @@ func asJsValue(v any)(res js.Value){
 	if e, ok := v.(js.Error); ok {
 		return e.Value
 	}
+	rv := reflect.ValueOf(v)
+	switch rv.Type().Kind() {
+	case reflect.String, reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return js.ValueOf(v)
+	}
 	buf, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
@@ -31,6 +40,48 @@ func asJsValue(v any)(res js.Value){
 		panic(err)
 	}
 	return js.ValueOf(v1)
+}
+
+var GoChannelIterator = (func()(cls js.Value){
+	cls = js.ValueOf(js.FuncOf(func(this js.Value, args []js.Value)(res any){
+		return
+	}))
+	cls.Set("name", "GoChannelIterator")
+	cls.Set("length", 0)
+	return
+})()
+
+var _emptyIterNextFn = (func()(js.Func){
+	cb := js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+		resolve := args[0]
+		resolve.Invoke(Map{ "done": true, "value": nil })
+		return
+	})
+	emptyIterNextPromise := Promise.New(cb)
+	cb.Release()
+	return js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+		return emptyIterNextPromise
+	})
+})()
+
+func NewChannelIteratorContext[T any](ctx context.Context, ch <-chan T)(iter js.Value){
+	iter = GoChannelIterator.New()
+	var nextMethod js.Func
+	nextMethod = asyncFuncOf(func(this js.Value, args []js.Value)(res any){
+		select {
+		case <-ctx.Done():
+			panic(ctx.Err())
+		case val, ok := <-ch:
+			if !ok {
+				iter.Set("next", _emptyIterNextFn)
+				nextMethod.Release()
+				return Map{ "done": true, "value": nil }
+			}
+			return Map{ "done": false, "value": val }
+		}
+	})
+	iter.Set("next", nextMethod)
+	return
 }
 
 type readCloser struct {

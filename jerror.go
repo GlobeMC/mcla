@@ -91,7 +91,7 @@ func parseJavaError0(line string, sc *bufio.Scanner)(je *JavaError){
 	return
 }
 
-func ScanJavaErrors(r io.Reader)(errs []*JavaError){
+func scanJavaErrors(r io.Reader, cb func(*JavaError)){
 	sc := bufio.NewScanner(r)
 	if !sc.Scan() {
 		return
@@ -131,11 +131,27 @@ func ScanJavaErrors(r io.Reader)(errs []*JavaError){
 			if line, ok := strings.CutPrefix(sc.Text(), "Caused by: "); ok {
 				je.CausedBy = parseJavaError0(line, sc)
 			}
-			errs = append(errs, je)
+			cb(je)
 		}
 	}
-	if errs == nil { // to ensure the json encoding is an array
-		errs = make([]*JavaError, 0)
-	}
 	return
+}
+
+func ScanJavaErrors(r io.Reader)(errs []*JavaError){
+	errs = make([]*JavaError, 0, 3)
+	scanJavaErrors(r, func(je *JavaError){
+		errs = append(errs, je)
+	})
+	return
+}
+
+func ScanJavaErrorsIntoChan(r io.Reader)(errs <-chan *JavaError){
+	errs0 := make(chan *JavaError, 3)
+	go func(){
+		defer close(errs0)
+		scanJavaErrors(r, func(je *JavaError){
+			errs0 <- je
+		})
+	}()
+	return errs0
 }
