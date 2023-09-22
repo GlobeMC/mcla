@@ -99,8 +99,8 @@ jobs:
       -
         name: Good for version control
         run: |
-          mkdir -p ${{ github.ref }}
-          cp wasm_exec.js mcla.wasm ${{ github.ref }}
+          mkdir -p "$RELEASE_VERSION"
+          cp wasm_exec.js mcla.wasm "$RELEASE_VERSION"
       -
         name: Commit and push
         run: |
