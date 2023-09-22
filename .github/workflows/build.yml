@@ -62,7 +62,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ env.RELEASE_VERSION }}
+          release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
       -
@@ -99,8 +99,9 @@ jobs:
       -
         name: Good for version control
         run: |
-          mkdir -p "$RELEASE_VERSION"
-          cp wasm_exec.js mcla.wasm "$RELEASE_VERSION"
+          export RELEASE_VERSION="${GITHUB_REF#refs/*/}"
+          mkdir -p "${RELEASE_VERSION}"
+          cp wasm_exec.js mcla.wasm "${RELEASE_VERSION}"
       -
         name: Commit and push
         run: |
