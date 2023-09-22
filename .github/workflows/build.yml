@@ -5,6 +5,7 @@ on:
   push:
     tags:
       - 'v*'
+      - 'dev'
 
 jobs:
   build-wasm:
@@ -17,7 +18,7 @@ jobs:
         name: Setup Tinygo
         uses: acifani/setup-tinygo@v1
         with:
-          tinygo-version: '0.28.1'
+          tinygo-version: '0.30.0'
       -
         name: Build wasm
         run: |
