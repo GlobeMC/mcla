@@ -10,7 +10,7 @@ type ErrorDesc struct {
 type SolutionDesc struct {
 	Tags        []string `json:"tags"`
 	Description string   `json:"description"`
-	LinkTo      string   `json:"link_to"`
+	LinkTo      string   `json:"linkTo"`
 }
 
 type ErrorDB interface {

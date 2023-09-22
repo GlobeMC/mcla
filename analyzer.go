@@ -6,7 +6,7 @@ import (
 )
 
 type SolutionPossibility struct {
-	ErrorDesc *ErrorDesc `json:"error_desc"`
+	ErrorDesc *ErrorDesc `json:"errorDesc"`
 	Match     float32    `json:"match"`
 }
 

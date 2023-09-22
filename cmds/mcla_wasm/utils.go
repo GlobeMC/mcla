@@ -70,7 +70,7 @@ func NewChannelIteratorContext[T any](ctx context.Context, ch <-chan T)(iter js.
 	nextMethod = asyncFuncOf(func(this js.Value, args []js.Value)(res any){
 		select {
 		case <-ctx.Done():
-			panic(ctx.Err())
+			panic(context.Cause(ctx))
 		case val, ok := <-ch:
 			if !ok {
 				iter.Set("next", _emptyIterNextFn)
@@ -211,7 +211,7 @@ func awaitPromiseContext(ctx context.Context, promise js.Value)(res js.Value, er
 	case err = <-errCh:
 		return
 	case <-ctx.Done():
-		err = ctx.Err()
+		err = context.Cause(ctx)
 		return
 	}
 }

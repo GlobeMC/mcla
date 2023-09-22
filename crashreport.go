@@ -2,7 +2,6 @@
 package mcla
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"io"
@@ -36,14 +35,14 @@ func hasDbIndent(line []byte)(bool){
 // Details:
 type ReportDetails map[string][]string
 
-func parseReportDetails(sc *bufio.Scanner)(d ReportDetails, err error){
+func parseReportDetails(sc *lineScanner)(d ReportDetails, err error){
 	if !sc.Scan() {
 		return
 	}
 	return parseReportDetails0(sc)
 }
 
-func parseReportDetails0(sc *bufio.Scanner)(d ReportDetails, err error){
+func parseReportDetails0(sc *lineScanner)(d ReportDetails, err error){
 	d = make(ReportDetails)
 	line := sc.Bytes()
 	for {
@@ -111,7 +110,7 @@ type HeadThread struct {
 	Stacktrace Stacktrace `json:"stacktrace"`
 }
 
-func parseHeadThread(sc *bufio.Scanner)(res HeadThread, err error){
+func parseHeadThread(sc *lineScanner)(res HeadThread, err error){
 	if !sc.Scan() {
 		return
 	}
@@ -143,7 +142,7 @@ type AffectedLevel struct {
 	Stacktrace Stacktrace    `json:"stacktrace"`
 }
 
-func parseAffectedLevel(sc *bufio.Scanner)(res AffectedLevel, err error){
+func parseAffectedLevel(sc *lineScanner)(res AffectedLevel, err error){
 	if !sc.Scan() {
 		return
 	}
@@ -177,7 +176,7 @@ type DetailsItem struct {
 	Details ReportDetails `json:"details"`
 }
 
-func parseDetailsItem(sc *bufio.Scanner)(res DetailsItem, err error){
+func parseDetailsItem(sc *lineScanner)(res DetailsItem, err error){
 	if !sc.Scan() {
 		return
 	}
@@ -209,12 +208,12 @@ type CrashReport struct {     // ---- Minecraft Crash Report ----
 	Description   string        `json:"description"`     // Description:
 	Error         *JavaError    `json:"error"`
 	HeadThread    HeadThread    `json:"head"`            // -- Head --
-	AffectedLevel AffectedLevel `json:"affected_level"`  // -- Affected level --
+	AffectedLevel AffectedLevel `json:"affectedLevel"`   // -- Affected level --
 	OtherDetails  map[string]DetailsItem `json:"others"` // -- <KEY> --
 }
 
 func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
-	sc := bufio.NewScanner(r) // default is scan lines
+	sc := newLineScanner(r)
 	for {
 		if !sc.Scan() {
 			if err = sc.Err(); err == nil {
@@ -222,7 +221,7 @@ func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
 			}
 			return
 		}
-		if strings.HasPrefix(strings.ToUpper(sc.Text()), crashReportHeader) {
+		if strings.HasSuffix(strings.ToUpper(strings.TrimSpace(sc.Text())), crashReportHeader) {
 			break
 		}
 	}

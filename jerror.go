@@ -2,7 +2,6 @@
 package mcla
 
 import (
-	"bufio"
 	"io"
 	"regexp"
 	"strings"
@@ -14,6 +13,16 @@ var (
 )
 
 type (
+	JavaError struct {
+		Class      string     `json:"class"`
+		Message    string     `json:"message"`
+		Stacktrace Stacktrace `json:"stacktrace"`
+		CausedBy   *JavaError `json:"causedBy"`
+
+		// extra infos
+	  LineNo int `json:"lineNo"` // which line did the error start
+	}
+
 	StackInfo struct {
 		Raw     string `json:"raw"`
 		Class   string `json:"class"`
@@ -36,14 +45,14 @@ func parseStackInfoFrom(line string)(s StackInfo, ok bool){
 	return
 }
 
-func parseStacktrace(sc *bufio.Scanner)(st Stacktrace){
+func parseStacktrace(sc *lineScanner)(st Stacktrace){
 	if !sc.Scan() {
 		return
 	}
 	return parseStacktrace0(sc)
 }
 
-func parseStacktrace0(sc *bufio.Scanner)(st Stacktrace){
+func parseStacktrace0(sc *lineScanner)(st Stacktrace){
 	var (
 		info StackInfo
 		ok bool
@@ -61,21 +70,15 @@ func parseStacktrace0(sc *bufio.Scanner)(st Stacktrace){
 	return
 }
 
-type JavaError struct {
-	Class      string     `json:"class"`
-	Message    string     `json:"message"`
-	Stacktrace Stacktrace `json:"stacktrace"`
-	CausedBy   *JavaError `json:"caused_by"`
-}
 
-func parseJavaError(sc *bufio.Scanner)(je *JavaError){
+func parseJavaError(sc *lineScanner)(je *JavaError){
 	if !sc.Scan() {
 		return
 	}
 	return parseJavaError0(sc.Text(), sc)
 }
 
-func parseJavaError0(line string, sc *bufio.Scanner)(je *JavaError){
+func parseJavaError0(line string, sc *lineScanner)(je *JavaError){
 	je = new(JavaError)
 	i := strings.IndexByte(line, ':')
 	if i == -1 {
@@ -92,13 +95,17 @@ func parseJavaError0(line string, sc *bufio.Scanner)(je *JavaError){
 }
 
 func scanJavaErrors(r io.Reader, cb func(*JavaError)){
-	sc := bufio.NewScanner(r)
+	sc := newLineScanner(r)
 	if !sc.Scan() {
 		return
 	}
-	var line string
+	var (
+		line string
+		lineNo int
+	)
 	for {
 		line = sc.Text()
+		lineNo = sc.Count()
 		emsg := javaErrorMatcher.FindStringSubmatch(line)
 		if !sc.Scan() {
 			break
@@ -127,6 +134,7 @@ func scanJavaErrors(r io.Reader, cb func(*JavaError)){
 				Class: emsg[1],
 				Message: emsg[2],
 				Stacktrace: st,
+				LineNo: lineNo,
 			}
 			if line, ok := strings.CutPrefix(sc.Text(), "Caused by: "); ok {
 				je.CausedBy = parseJavaError0(line, sc)
