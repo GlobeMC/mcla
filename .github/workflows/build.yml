@@ -44,6 +44,15 @@ jobs:
       -
         name: Build
         run: /usr/bin/env bash ./cmds/mcla/build.sh -ldflags="-X 'main.version=${GITHUB_REF#refs/*/}'"
+      -
+        name: Upload Release Assets
+        uses: zyxkad/upload-release-asset-dir@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_dir: ./output
+
 
   build-wasm:
     runs-on: ubuntu-latest
@@ -75,7 +84,7 @@ jobs:
           name: build-wasm-exec-js
           path: output/wasm_exec.js
 
-  publish-release:
+  publish-wasm:
     runs-on: ubuntu-latest
     needs:
       - create-release
@@ -99,7 +108,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ jobs.create-release.outputs.upload_url }}
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
           asset_dir: ./output
 
   publish-pages:
