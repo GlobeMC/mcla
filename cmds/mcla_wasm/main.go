@@ -136,11 +136,12 @@ func analyzeLogErrorsIter(args []js.Value)(iterator js.Value){
 		defer close(result)
 		var wg sync.WaitGroup
 		resCh, errCh := ScanJavaErrorsIntoChan(r)
+	LOOP:
 		for {
 			select{
 			case jerr := <-resCh:
 				if jerr == nil {
-					return
+					break LOOP
 				}
 				wg.Add(1)
 				go func(){
@@ -155,7 +156,7 @@ func analyzeLogErrorsIter(args []js.Value)(iterator js.Value){
 					}
 					select {
 					case result <- res:
-					case <-bgCtx.Done():
+					case <-ctx.Done():
 					}
 				}()
 			case err := <-errCh:
