@@ -11,7 +11,7 @@ jobs:
   create_release:
     runs-on: ubuntu-latest
     outputs:
-      upload_url: steps.create_release.outputs.upload_url
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       -
         name: Create Release
