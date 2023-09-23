@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	javaErrorMatcher = regexp.MustCompile(`^([\w\d$_]+(?:\.[\w\d$_]+)*):\s+(.*)$`)
-	stackInfoMatcher = regexp.MustCompile(`^\s+at\s+([\w\d$_]+(?:\.[\w\d$_]+)*)\.([\w\d$_<>]+)`)
+	javaErrorMatcher = regexp.MustCompile(`^([\w\d$_]+(?:\.[\w\d$_]+)+):\s+(.*)$`)
+	stackInfoMatcher = regexp.MustCompile(`^\s+at\s+([\w\d$_]+(?:\.[\w\d$_]+)+)\.([\w\d$_<>]+)`)
 )
 
 type (
@@ -94,10 +94,10 @@ func parseJavaError0(line string, sc *lineScanner)(je *JavaError){
 	return
 }
 
-func scanJavaErrors(r io.Reader, cb func(*JavaError)){
+func scanJavaErrors(r io.Reader, cb func(*JavaError))(err error){
 	sc := newLineScanner(r)
 	if !sc.Scan() {
-		return
+		return sc.Err()
 	}
 	var (
 		line string
@@ -108,7 +108,7 @@ func scanJavaErrors(r io.Reader, cb func(*JavaError)){
 		lineNo = sc.Count()
 		emsg := javaErrorMatcher.FindStringSubmatch(line)
 		if !sc.Scan() {
-			break
+			return sc.Err()
 		}
 		if emsg == nil {
 			continue
@@ -142,24 +142,27 @@ func scanJavaErrors(r io.Reader, cb func(*JavaError)){
 			cb(je)
 		}
 	}
-	return
 }
 
-func ScanJavaErrors(r io.Reader)(errs []*JavaError){
-	errs = make([]*JavaError, 0, 3)
-	scanJavaErrors(r, func(je *JavaError){
-		errs = append(errs, je)
+func ScanJavaErrors(r io.Reader)(res []*JavaError, err error){
+	res = make([]*JavaError, 0, 3)
+	err = scanJavaErrors(r, func(je *JavaError){
+		res = append(res, je)
 	})
 	return
 }
 
-func ScanJavaErrorsIntoChan(r io.Reader)(errs <-chan *JavaError){
-	errs0 := make(chan *JavaError, 3)
+func ScanJavaErrorsIntoChan(r io.Reader)(<-chan *JavaError, <-chan error){
+	resCh := make(chan *JavaError, 3)
+	errCh := make(chan error, 1)
 	go func(){
-		defer close(errs0)
-		scanJavaErrors(r, func(je *JavaError){
-			errs0 <- je
+		defer close(resCh)
+		err := scanJavaErrors(r, func(je *JavaError){
+			resCh <- je
 		})
+		if err != nil {
+			errCh <- err
+		}
 	}()
-	return errs0
+	return resCh, errCh
 }

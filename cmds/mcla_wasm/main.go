@@ -76,7 +76,10 @@ func parseCrashReport(args []js.Value)(report *CrashReport){
 func parseLogErrors(args []js.Value)(errs []*JavaError){
 	value := args[0]
 	r := wrapJsValueAsReader(value)
-	errs = ScanJavaErrors(r)
+	var err error
+	if errs, err = ScanJavaErrors(r); err != nil {
+		panic(err)
+	}
 	return
 }
 
@@ -88,7 +91,10 @@ type ErrorResult struct {
 func analyzeLogErrors(args []js.Value)(result []ErrorResult){
 	value := args[0]
 	r := wrapJsValueAsReader(value)
-	errs := ScanJavaErrors(r)
+	errs, err := ScanJavaErrors(r)
+	if err != nil {
+		panic(err)
+	}
 	result = make([]ErrorResult, len(errs))
 
 	ctx, cancel := context.WithCancelCause(bgCtx)
@@ -114,7 +120,7 @@ func analyzeLogErrors(args []js.Value)(result []ErrorResult){
 		select {
 		case <-doneCh:
 		case <-ctx.Done():
-			panic(ctx.Err())
+			panic(context.Cause(ctx))
 		}
 	}
 	return
@@ -123,31 +129,39 @@ func analyzeLogErrors(args []js.Value)(result []ErrorResult){
 func analyzeLogErrorsIter(args []js.Value)(iterator js.Value){
 	value := args[0]
 	r := wrapJsValueAsReader(value)
-	result := make(chan ErrorResult, 3)
+	result := make(chan *ErrorResult, 3)
 	ctx, cancel := context.WithCancelCause(bgCtx)
 	iterator = NewChannelIteratorContext(ctx, result)
 	go func(){
 		defer close(result)
 		var wg sync.WaitGroup
-		errCh := ScanJavaErrorsIntoChan(r)
-		for jerr := range errCh {
-			wg.Add(1)
-			go func(){
-				defer wg.Done()
-				var (
-					res ErrorResult
-					err error
-				)
-				res.Error = jerr
-				if res.Matched, err = defaultAnalyzer.DoError(jerr); err != nil {
-					cancel(err)
+		resCh, errCh := ScanJavaErrorsIntoChan(r)
+		for {
+			select{
+			case jerr := <-resCh:
+				if jerr == nil {
 					return
 				}
-				select {
-				case result <- res:
-				case <-bgCtx.Done():
-				}
-			}()
+				wg.Add(1)
+				go func(){
+					defer wg.Done()
+					var err error
+					res := &ErrorResult{
+						Error: jerr,
+					}
+					if res.Matched, err = defaultAnalyzer.DoError(jerr); err != nil {
+						cancel(err)
+						return
+					}
+					select {
+					case result <- res:
+					case <-bgCtx.Done():
+					}
+				}()
+			case err := <-errCh:
+				cancel(err)
+				return
+			}
 		}
 		wg.Wait()
 	}()
