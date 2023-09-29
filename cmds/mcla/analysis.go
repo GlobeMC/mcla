@@ -8,8 +8,6 @@ import (
 	"github.com/kmcsr/mcla"
 )
 
-var analyzer mcla.Analyzer
-
 type ErrorResult struct {
 	Error   *mcla.JavaError            `json:"error"`
 	Matched []mcla.SolutionPossibility `json:"matched"`
@@ -40,7 +38,7 @@ func analyzeLogErrors(r io.Reader)(<-chan *ErrorResult, <-chan error){
 					res := &ErrorResult{
 						Error: jerr,
 					}
-					if res.Matched, err = analyzer.DoError(jerr); err != nil {
+					if res.Matched, err = defaultAnalyzer.DoError(jerr); err != nil {
 						errCh <- err
 						return
 					}
