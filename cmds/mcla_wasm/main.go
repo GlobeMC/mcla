@@ -134,6 +134,8 @@ func analyzeLogErrorsIter(args []js.Value)(iterator js.Value){
 	iterator = NewChannelIteratorContext(ctx, result)
 	go func(){
 		defer close(result)
+		defer println("exited analyzeLogErrorsIter")
+		println("start analyzeLogErrorsIter")
 		var wg sync.WaitGroup
 		resCh, errCh := ScanJavaErrorsIntoChan(r)
 	LOOP:
@@ -146,6 +148,8 @@ func analyzeLogErrorsIter(args []js.Value)(iterator js.Value){
 				wg.Add(1)
 				go func(){
 					defer wg.Done()
+					defer println("exited matching error:", jerr)
+					println("matching new error:", jerr)
 					var err error
 					res := &ErrorResult{
 						Error: jerr,

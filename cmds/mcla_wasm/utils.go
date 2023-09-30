@@ -17,9 +17,11 @@ func asJsValue(v any)(res js.Value){
 	defer println("done calling asJsValue")
 	println("calling asJsValue")
 	if v == nil {
+		println("as null")
 		return js.Null()
 	}
 	if v0, ok := v.(js.Value); ok {
+		println("already js.value")
 		return v0
 	}
 	if e, ok := v.(js.Error); ok {
