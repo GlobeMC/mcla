@@ -14,6 +14,8 @@ import (
 type Map = map[string]any
 
 func asJsValue(v any)(res js.Value){
+	defer println("done calling asJsValue")
+	println("calling asJsValue")
 	if v == nil {
 		return js.Null()
 	}
@@ -29,6 +31,7 @@ func asJsValue(v any)(res js.Value){
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64:
+		println("basic types")
 		return js.ValueOf(v)
 	}
 	println("marshalling")
