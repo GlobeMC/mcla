@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/kmcsr/mcla"
+	"github.com/GlobeMC/mcla"
 )
 
 type ErrorResult struct {

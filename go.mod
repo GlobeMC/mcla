@@ -1,3 +1,3 @@
-module github.com/kmcsr/mcla
+module github.com/GlobeMC/mcla
 
 go 1.21

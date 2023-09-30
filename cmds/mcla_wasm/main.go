@@ -9,7 +9,7 @@ import (
 	"sync"
 	"syscall/js"
 
-	. "github.com/kmcsr/mcla"
+	. "github.com/GlobeMC/mcla"
 )
 
 var bgCtx context.Context = createBackgroundCtx()

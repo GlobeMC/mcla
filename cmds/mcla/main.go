@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kmcsr/mcla"
+	"github.com/GlobeMC/mcla"
 )
 
 func printf(format string, args ...any){
