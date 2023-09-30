@@ -31,8 +31,11 @@ func getStorageValue(key string, ptr any)(ok bool){
 		return
 	}
 	key = appStorageKeyPrefix + key
-	value := localStorage.Call("getItem", key)
-	if js.Null().Equal(value) {
+	value, err := awaitPromise(localStorage.Call("getItem", key))
+	if err != nil {
+		return false
+	}
+	if !value.Truthy() {
 		return false
 	}
 	if ptr != nil {
