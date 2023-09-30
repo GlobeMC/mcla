@@ -12,9 +12,11 @@ type lineScanner struct {
 }
 
 func newLineScanner(r io.Reader)(*lineScanner){
+	bs := bufio.NewScanner(r)
+	bs.Buffer(make([]byte, 256 * 1024), 1024 * 1024) // 256KB per line, large enough?
 	return &lineScanner{
 		count: 0,
-		Scanner: bufio.NewScanner(r),
+		Scanner: bs,
 	}
 }
 

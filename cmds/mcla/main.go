@@ -72,10 +72,6 @@ func analysisAndOutput(file string){
 	}
 	defer fd.Close()
 	resCh, errCh := analyzeLogErrors(fd)
-	if err != nil {
-		printf("Error when analyzing file %q: %v", file, err)
-		os.Exit(1)
-	}
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
