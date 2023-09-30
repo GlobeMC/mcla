@@ -14,14 +14,10 @@ import (
 type Map = map[string]any
 
 func asJsValue(v any)(res js.Value){
-	defer println("done calling asJsValue")
-	println("calling asJsValue")
 	if v == nil {
-		println("as null")
 		return js.Null()
 	}
 	if v0, ok := v.(js.Value); ok {
-		println("already js.value")
 		return v0
 	}
 	if e, ok := v.(js.Error); ok {
@@ -33,21 +29,16 @@ func asJsValue(v any)(res js.Value){
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64:
-		println("basic types")
 		return js.ValueOf(v)
 	}
-	println("marshalling")
 	buf, err := json.Marshal(v)
-	println("done marshalling:", err)
 	if err != nil {
 		panic(err)
 	}
-	println("unmarshalling")
 	var v1 any
 	if err = json.Unmarshal(buf, &v1); err != nil {
 		panic(err)
 	}
-	println("done marshalling")
 	return js.ValueOf(v1)
 }
 
@@ -77,14 +68,10 @@ func NewChannelIteratorContext[T any](ctx context.Context, ch <-chan T)(iter js.
 	iter = GoChannelIterator.New()
 	var nextMethod js.Func
 	nextMethod = asyncFuncOf(func(this js.Value, args []js.Value)(res any){
-		defer println("exited")
-		println("waiting")
 		select {
 		case <-ctx.Done():
-			println("context done")
 			panic(context.Cause(ctx))
 		case val, ok := <-ch:
-			println("got new data:", ok)
 			if !ok {
 				iter.Set("next", _emptyIterNextFn)
 				nextMethod.Release()

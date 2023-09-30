@@ -25,7 +25,11 @@ var (
 
 const appStorageKeyPrefix = "com.github.kmcsr.mcla."
 
+// TODO: use https://developer.mozilla.org/en-US/docs/Web/API/IDBFactory
 func getStorageValue(key string, ptr any)(ok bool){
+	if !localStorage.Truthy() {
+		return
+	}
 	key = appStorageKeyPrefix + key
 	value := localStorage.Call("getItem", key)
 	if js.Null().Equal(value) {
@@ -40,6 +44,9 @@ func getStorageValue(key string, ptr any)(ok bool){
 }
 
 func setStorageValue(key string, value any){
+	if !localStorage.Truthy() {
+		return
+	}
 	key = appStorageKeyPrefix + key
 	buf, err := json.Marshal(value)
 	if err != nil {
@@ -49,6 +56,9 @@ func setStorageValue(key string, value any){
 }
 
 func delStorageValue(key string){
+	if !localStorage.Truthy() {
+		return
+	}
 	key = appStorageKeyPrefix + key
 	localStorage.Call("removeItem", key)
 }
