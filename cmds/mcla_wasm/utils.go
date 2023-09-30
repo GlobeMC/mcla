@@ -31,14 +31,18 @@ func asJsValue(v any)(res js.Value){
 		reflect.Float32, reflect.Float64:
 		return js.ValueOf(v)
 	}
+	println("marshalling")
 	buf, err := json.Marshal(v)
+	println("done marshalling:", err)
 	if err != nil {
 		panic(err)
 	}
+	println("unmarshalling")
 	var v1 any
 	if err = json.Unmarshal(buf, &v1); err != nil {
 		panic(err)
 	}
+	println("done marshalling")
 	return js.ValueOf(v1)
 }
 
