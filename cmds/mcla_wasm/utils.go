@@ -68,10 +68,14 @@ func NewChannelIteratorContext[T any](ctx context.Context, ch <-chan T)(iter js.
 	iter = GoChannelIterator.New()
 	var nextMethod js.Func
 	nextMethod = asyncFuncOf(func(this js.Value, args []js.Value)(res any){
+		defer println("exited")
+		println("waiting")
 		select {
 		case <-ctx.Done():
+			println("context done")
 			panic(context.Cause(ctx))
 		case val, ok := <-ch:
+			println("got new data:", ok)
 			if !ok {
 				iter.Set("next", _emptyIterNextFn)
 				nextMethod.Release()

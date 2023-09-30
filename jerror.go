@@ -96,9 +96,12 @@ func parseJavaError0(line string, sc *lineScanner)(je *JavaError){
 
 func scanJavaErrors(r io.Reader, cb func(*JavaError))(err error){
 	sc := newLineScanner(r)
+	println("first scan")
 	if !sc.Scan() {
+		println("first scan error:", sc.Err().Error())
 		return sc.Err()
 	}
+	println("after first scan")
 	var (
 		line string
 		lineNo int
