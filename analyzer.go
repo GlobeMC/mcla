@@ -51,7 +51,7 @@ func (a *Analyzer)DoError(jerr *JavaError)(matched []SolutionPossibility, err er
 					sol.Match += matches * 0.9
 				}
 			}
-			if sol.Match >= 0.5 { // at least have 50% matches
+			if sol.Match != 0 { // have any matches
 				matched = append(matched, sol)
 			}
 			return
