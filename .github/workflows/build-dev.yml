@@ -1,0 +1,75 @@
+
+name: Create tagged dev build
+
+on:
+  push:
+    tags:
+      - 'dev'
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Action Checkout
+        uses: actions/checkout@v3
+      -
+        name: Setup Tinygo
+        uses: acifani/setup-tinygo@v1
+        with:
+          tinygo-version: '0.30.0'
+      -
+        name: Build wasm
+        run: |
+          mkdir output
+          /usr/bin/env bash ./cmds/mcla_wasm/build.sh -o ./output/mcla.wasm -ldflags="-X 'main.version=hash-${GITHUB_SHA}'"
+          cp ./cmds/mcla_wasm/wasm_exec.js ./output/wasm_exec.js
+      -
+        name: Upload wasm output to artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-wasm-output
+          path: output/mcla.wasm
+      -
+        name: Upload tinygo wasm_exec to artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-wasm-exec-js
+          path: output/wasm_exec.js
+
+  publish-pages:
+    runs-on: ubuntu-latest
+    needs:
+      - build-wasm
+    steps:
+      -
+        name: Action Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: 'pages'
+      -
+        name: Download build-wasm output from artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: build-wasm-output
+          path: .
+      -
+        name: Download tinygo wasm_exec from artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: build-wasm-exec-js
+          path: .
+      -
+        name: Good for version control
+        run: |
+          export RELEASE_VERSION="${GITHUB_REF#refs/*/}"
+          mkdir -p "${RELEASE_VERSION}"
+          cp wasm_exec.js mcla.wasm "${RELEASE_VERSION}"
+      -
+        name: Commit and push
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions[bot]@users.noreply.github.com
+          git add .
+          git commit -m "published dev"
+          git push

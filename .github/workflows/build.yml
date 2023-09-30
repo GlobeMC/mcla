@@ -5,7 +5,6 @@ on:
   push:
     tags:
       - 'v*'
-      - 'dev'
 
 jobs:
   create_release:
@@ -43,7 +42,7 @@ jobs:
         run: go test -v .
       -
         name: Build
-        run: /usr/bin/env bash ./cmds/mcla/build.sh -ldflags="-X 'main.version=${GITHUB_REF#refs/*/}'"
+        run: /usr/bin/env bash ./cmds/mcla/build.sh -opt=z -no-debug -ldflags="-X 'main.version=${GITHUB_REF#refs/*/}'"
       -
         name: Upload Release Assets
         uses: zyxkad/upload-release-asset-dir@v1
