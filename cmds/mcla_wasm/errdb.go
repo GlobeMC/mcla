@@ -49,9 +49,13 @@ func (db *ghErrDB)fetch(subpaths ...string)(res *Response, err error){
 	if path, err = url.JoinPath(db.Prefix, subpaths...); err != nil {
 		return
 	}
+	println("begin fetch")
+	defer println("after fetch")
 	if res, err = fetch(path); err != nil {
+		println("error fetch:", err.Error())
 		return
 	}
+	println("success fetch")
 	return
 }
 
