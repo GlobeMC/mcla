@@ -3,7 +3,7 @@ name: Create tagged dev build
 
 on:
   push:
-    tags:
+    branches:
       - 'dev'
 
 jobs:
