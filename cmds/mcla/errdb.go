@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/GlobeMC/mcla"
 )
@@ -41,6 +42,7 @@ type versionDataT struct {
 type ghErrDB struct {
 	Prefix string
 	cachedVersion versionDataT
+	lastCheck time.Time
 }
 
 var _ mcla.ErrorDB = (*ghErrDB)(nil)
@@ -98,6 +100,10 @@ func (db *ghErrDB)getErrorDesc(id int)(desc *mcla.ErrorDesc, err error){
 }
 
 func (db *ghErrDB)checkUpdate()(err error){
+	if !db.lastCheck.IsZero() && time.Since(db.lastCheck) <= time.Minute {
+		return nil
+	}
+
 	newVersion, err := db.fetchGhDBVersion()
 	if err != nil {
 		return
@@ -151,6 +157,8 @@ func (db *ghErrDB)checkUpdate()(err error){
 		db.cachedVersion.Patch = newVersion.Patch
 	}
 	// setStorageValue("gh.db.version", db.cachedVersion)
+
+	db.lastCheck = time.Now()
 	return
 }
 
