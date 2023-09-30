@@ -115,15 +115,14 @@ func (db *ghErrDB)checkUpdate()(err error){
 				if res, err = db.fetch("errors", fmt.Sprintf("%d.json", i)); err != nil {
 					return
 				}
+				defer res.Body.Close()
 				stokey := fmt.Sprintf("gh.db.errs.%d", i)
 				if res.StatusCode != 200 {
-					res.Body.Close()
 					setStorageValue(stokey, nil)
 					return
 				}
 				var v *ErrorDesc
 				e := json.NewDecoder(res.Body).Decode(&v)
-				res.Body.Close()
 				if e != nil {
 					delStorageValue(stokey)
 					return

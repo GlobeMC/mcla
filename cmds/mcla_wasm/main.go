@@ -154,7 +154,6 @@ func analyzeLogErrorsIter(args []js.Value)(iterator js.Value){
 						cancel(err)
 						return
 					}
-					println("channeling")
 					select {
 					case result <- res:
 					case <-ctx.Done():
