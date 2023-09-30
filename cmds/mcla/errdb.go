@@ -81,6 +81,9 @@ func (db *ghErrDB)getErrorDesc(id int)(desc *mcla.ErrorDesc, err error){
 	// 	return
 	// }
 	res, err := db.fetch("errors", fmt.Sprintf("%d.json", id))
+	if err != nil {
+		return
+	}
 	if res.StatusCode != 200 {
 		res.Body.Close()
 		if res.StatusCode == 404 {
@@ -167,9 +170,9 @@ func (db *ghErrDB)ForEachErrors(callback func(*mcla.ErrorDesc)(error))(err error
 	return
 }
 
-func (*ghErrDB)GetSolution(id int)(*mcla.SolutionDesc){
+func (*ghErrDB)GetSolution(id int)(*mcla.SolutionDesc, error){
 	panic("Unimplemented operation 'GetSolution'")
-	return nil
+	return nil, nil
 }
 
 var defaultErrDB = &ghErrDB{

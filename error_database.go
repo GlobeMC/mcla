@@ -15,5 +15,5 @@ type SolutionDesc struct {
 
 type ErrorDB interface {
 	ForEachErrors(callback func(*ErrorDesc)(error))(err error)
-	GetSolution(id int)(*SolutionDesc)
+	GetSolution(id int)(sol *SolutionDesc, err error)
 }

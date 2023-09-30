@@ -154,7 +154,7 @@ func ScanJavaErrors(r io.Reader)(res []*JavaError, err error){
 
 func ScanJavaErrorsIntoChan(r io.Reader)(<-chan *JavaError, <-chan error){
 	resCh := make(chan *JavaError, 3)
-	errCh := make(chan error, 1)
+	errCh := make(chan error, 0)
 	go func(){
 		defer close(resCh)
 		err := scanJavaErrors(r, func(je *JavaError){

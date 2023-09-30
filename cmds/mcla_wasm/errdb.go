@@ -166,9 +166,9 @@ func (db *ghErrDB)ForEachErrors(callback func(*ErrorDesc)(error))(err error){
 	return
 }
 
-func (*ghErrDB)GetSolution(id int)(*SolutionDesc){
+func (*ghErrDB)GetSolution(id int)(*SolutionDesc, error){
 	panic("Unimplemented operation 'GetSolution'")
-	return nil
+	return nil, nil
 }
 
 var defaultErrDB = &ghErrDB{
