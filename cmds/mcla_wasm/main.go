@@ -46,6 +46,8 @@ func getAPI()(m Map){
 }
 
 func main(){
+	defaultErrDB.checkUpdate() // refresh caches
+
 	api := getAPI()
 	api["release"] = js.FuncOf(func(_ js.Value, _ []js.Value)(_ any){
 		global.Delete("MCLA")

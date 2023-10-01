@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/GlobeMC/mcla"
@@ -40,6 +41,7 @@ type versionDataT struct {
 
 type ghErrDB struct {
 	Prefix string
+	checking atomic.Bool
 	cachedVersion versionDataT
 	lastCheck time.Time
 }
@@ -96,6 +98,11 @@ func (db *ghErrDB)getErrorDesc(id int)(desc *ErrorDesc, err error){
 }
 
 func (db *ghErrDB)checkUpdate()(err error){
+	if !db.checking.CompareAndSwap(false, true) {
+		return
+	}
+	defer db.checking.Store(false)
+
 	if !db.lastCheck.IsZero() && time.Since(db.lastCheck) <= time.Minute {
 		return nil
 	}
