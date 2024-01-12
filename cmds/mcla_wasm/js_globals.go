@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -9,10 +8,10 @@ import (
 var (
 	global = js.Global()
 	// class
-	Object         = global.Get("Object")
-	Promise        = global.Get("Promise")
-	Uint8Array     = global.Get("Uint8Array")
-	ReadableStream = global.Get("ReadableStream")
+	Object                      = global.Get("Object")
+	Promise                     = global.Get("Promise")
+	Uint8Array                  = global.Get("Uint8Array")
+	ReadableStream              = global.Get("ReadableStream")
 	ReadableStreamDefaultReader = global.Get("ReadableStreamDefaultReader")
 	ReadableStreamBYOBReader    = global.Get("ReadableStreamBYOBReader")
 	// function
@@ -26,7 +25,7 @@ var (
 const appStorageKeyPrefix = "com.github.kmcsr.mcla."
 
 // TODO: use https://developer.mozilla.org/en-US/docs/Web/API/IDBFactory
-func getStorageValue(key string, ptr any)(ok bool){
+func getStorageValue(key string, ptr any) (ok bool) {
 	if !localStorage.Truthy() {
 		return
 	}
@@ -46,7 +45,7 @@ func getStorageValue(key string, ptr any)(ok bool){
 	return true
 }
 
-func setStorageValue(key string, value any){
+func setStorageValue(key string, value any) {
 	if !localStorage.Truthy() {
 		return
 	}
@@ -58,7 +57,7 @@ func setStorageValue(key string, value any){
 	localStorage.Call("setItem", key, (string)(buf))
 }
 
-func delStorageValue(key string){
+func delStorageValue(key string) {
 	if !localStorage.Truthy() {
 		return
 	}

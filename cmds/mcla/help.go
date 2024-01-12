@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -19,7 +18,7 @@ Subcommands:
    - analyzeErrors [<filename>...]
 `
 
-func help(){
+func help() {
 	fmt.Printf(LICENSE, version)
 	fmt.Print(HELP_MESSAGE)
 }

@@ -1,7 +1,7 @@
-
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,14 +9,14 @@ import (
 	"github.com/GlobeMC/mcla"
 )
 
-func printf(format string, args ...any){
-	if format[len(format) - 1] != '\n' {
+func printf(format string, args ...any) {
+	if format[len(format)-1] != '\n' {
 		format += "\n"
 	}
 	fmt.Fprintf(os.Stderr, format, args...)
 }
 
-func main(){
+func main() {
 	if len(os.Args) <= 1 {
 		help()
 		return
@@ -64,14 +64,14 @@ func main(){
 	}
 }
 
-func analysisAndOutput(file string){
+func analysisAndOutput(file string) {
 	fd, err := os.Open(file)
 	if err != nil {
 		printf("Error when opening file %q: %v", file, err)
 		os.Exit(1)
 	}
 	defer fd.Close()
-	resCh, errCh := analyzeLogErrors(fd)
+	result, ctx := defaultAnalyzer.DoLogStream(context.Background(), fd)
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
@@ -79,7 +79,7 @@ func analysisAndOutput(file string){
 LOOP_RES:
 	for {
 		select {
-		case res := <-resCh:
+		case res := <-result:
 			if res == nil { // done
 				break LOOP_RES
 			}
@@ -89,7 +89,8 @@ LOOP_RES:
 				printf("\nError when encoding report file as json: %v", err)
 				os.Exit(1)
 			}
-		case err := <-errCh:
+		case <-ctx.Done():
+			err := context.Cause(ctx)
 			printf("Error when analyzing file %q: %v", file, err)
 			os.Exit(1)
 		}

@@ -1,4 +1,3 @@
-
 package mcla
 
 import (
@@ -20,20 +19,20 @@ type (
 		CausedBy   *JavaError `json:"causedBy"`
 
 		// extra infos
-	  LineNo int `json:"lineNo"` // which line did the error start
+		LineNo int `json:"lineNo"` // which line did the error start
 	}
 
 	StackInfo struct {
-		Raw     string `json:"raw"`
-		Class   string `json:"class"`
-		Method  string `json:"method"`
+		Raw    string `json:"raw"`
+		Class  string `json:"class"`
+		Method string `json:"method"`
 	}
 
 	// Stacktrace:
 	Stacktrace []StackInfo
 )
 
-func parseStackInfoFrom(line string)(s StackInfo, ok bool){
+func parseStackInfoFrom(line string) (s StackInfo, ok bool) {
 	res := stackInfoMatcher.FindStringSubmatch(line)
 	if res == nil {
 		return
@@ -45,17 +44,17 @@ func parseStackInfoFrom(line string)(s StackInfo, ok bool){
 	return
 }
 
-func parseStacktrace(sc *lineScanner)(st Stacktrace){
+func parseStacktrace(sc *lineScanner) (st Stacktrace) {
 	if !sc.Scan() {
 		return
 	}
 	return parseStacktrace0(sc)
 }
 
-func parseStacktrace0(sc *lineScanner)(st Stacktrace){
+func parseStacktrace0(sc *lineScanner) (st Stacktrace) {
 	var (
 		info StackInfo
-		ok bool
+		ok   bool
 	)
 	for {
 		line := sc.Text()
@@ -70,21 +69,20 @@ func parseStacktrace0(sc *lineScanner)(st Stacktrace){
 	return
 }
 
-
-func parseJavaError(sc *lineScanner)(je *JavaError){
+func parseJavaError(sc *lineScanner) (je *JavaError) {
 	if !sc.Scan() {
 		return
 	}
 	return parseJavaError0(sc.Text(), sc)
 }
 
-func parseJavaError0(line string, sc *lineScanner)(je *JavaError){
+func parseJavaError0(line string, sc *lineScanner) (je *JavaError) {
 	je = new(JavaError)
 	i := strings.IndexByte(line, ':')
 	if i == -1 {
 		je.Message = line
-	}else{
-		je.Class, je.Message = line[:i], strings.TrimSpace(line[i + 1:])
+	} else {
+		je.Class, je.Message = line[:i], strings.TrimSpace(line[i+1:])
 	}
 	je.Stacktrace = parseStacktrace(sc)
 	line = sc.Text()
@@ -94,13 +92,13 @@ func parseJavaError0(line string, sc *lineScanner)(je *JavaError){
 	return
 }
 
-func scanJavaErrors(r io.Reader, cb func(*JavaError))(err error){
+func scanJavaErrors(r io.Reader, cb func(*JavaError)) (err error) {
 	sc := newLineScanner(r)
 	if !sc.Scan() {
 		return sc.Err()
 	}
 	var (
-		line string
+		line   string
 		lineNo int
 	)
 	for {
@@ -121,7 +119,7 @@ func scanJavaErrors(r io.Reader, cb func(*JavaError))(err error){
 			if em := javaErrorMatcher.FindStringSubmatch(l2); em != nil {
 				line = l2
 				emsg = em
-			}else{
+			} else {
 				emsg[2] += "\n" + l2
 			}
 			if !sc.Scan() {
@@ -129,12 +127,12 @@ func scanJavaErrors(r io.Reader, cb func(*JavaError))(err error){
 			}
 		}
 		st := parseStacktrace0(sc)
-		if st != nil { // if stacktrace exists 
+		if st != nil { // if stacktrace exists
 			je := &JavaError{
-				Class: emsg[1],
-				Message: emsg[2],
+				Class:      emsg[1],
+				Message:    emsg[2],
 				Stacktrace: st,
-				LineNo: lineNo,
+				LineNo:     lineNo,
 			}
 			if line, ok := strings.CutPrefix(sc.Text(), "Caused by: "); ok {
 				je.CausedBy = parseJavaError0(line, sc)
@@ -144,20 +142,20 @@ func scanJavaErrors(r io.Reader, cb func(*JavaError))(err error){
 	}
 }
 
-func ScanJavaErrors(r io.Reader)(res []*JavaError, err error){
+func ScanJavaErrors(r io.Reader) (res []*JavaError, err error) {
 	res = make([]*JavaError, 0, 3)
-	err = scanJavaErrors(r, func(je *JavaError){
+	err = scanJavaErrors(r, func(je *JavaError) {
 		res = append(res, je)
 	})
 	return
 }
 
-func ScanJavaErrorsIntoChan(r io.Reader)(<-chan *JavaError, <-chan error){
+func ScanJavaErrorsIntoChan(r io.Reader) (<-chan *JavaError, <-chan error) {
 	resCh := make(chan *JavaError, 3)
 	errCh := make(chan error, 0)
-	go func(){
+	go func() {
 		defer close(resCh)
-		err := scanJavaErrors(r, func(je *JavaError){
+		err := scanJavaErrors(r, func(je *JavaError) {
 			resCh <- je
 		})
 		if err != nil {

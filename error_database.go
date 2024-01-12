@@ -1,4 +1,3 @@
-
 package mcla
 
 type ErrorDesc struct {
@@ -14,6 +13,6 @@ type SolutionDesc struct {
 }
 
 type ErrorDB interface {
-	ForEachErrors(callback func(*ErrorDesc)(error))(err error)
-	GetSolution(id int)(sol *SolutionDesc, err error)
+	ForEachErrors(callback func(*ErrorDesc) error) (err error)
+	GetSolution(id int) (sol *SolutionDesc, err error)
 }

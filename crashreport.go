@@ -1,4 +1,3 @@
-
 package mcla
 
 import (
@@ -10,39 +9,38 @@ import (
 
 var (
 	ErrUnexpectedIndent = errors.New("Crash report details format incorrect: unexpected indent")
-	ErrMissingColon = errors.New("Crash report details format incorrect: missing colon")
+	ErrMissingColon     = errors.New("Crash report details format incorrect: missing colon")
 )
 
 var (
-	crashReportHeader   = strings.ToUpper("---- Minecraft Crash Report ----")
-	headThreadKey       = strings.ToUpper("Head")
-	affectedLevelKey    = strings.ToUpper("Affected level")
-	descriptionHeader   = strings.ToUpper("Description:")
-	detailsKeyHeader    = strings.ToUpper("Details:")
-	stacktraceHeader    = strings.ToUpper("Stacktrace:")
-	threadKeyHeader     = strings.ToUpper("Thread:")
+	crashReportHeader = strings.ToUpper("---- Minecraft Crash Report ----")
+	headThreadKey     = strings.ToUpper("Head")
+	affectedLevelKey  = strings.ToUpper("Affected level")
+	descriptionHeader = strings.ToUpper("Description:")
+	detailsKeyHeader  = strings.ToUpper("Details:")
+	stacktraceHeader  = strings.ToUpper("Stacktrace:")
+	threadKeyHeader   = strings.ToUpper("Thread:")
 )
 
-
-func hasIndent(line []byte)(bool){
+func hasIndent(line []byte) bool {
 	return bytes.HasPrefix(line, ([]byte)("\t")) || bytes.HasPrefix(line, ([]byte)("  "))
 }
 
-func hasDbIndent(line []byte)(bool){
+func hasDbIndent(line []byte) bool {
 	return bytes.HasPrefix(line, ([]byte)("\t\t")) || bytes.HasPrefix(line, ([]byte)("    "))
 }
 
 // Details:
 type ReportDetails map[string][]string
 
-func parseReportDetails(sc *lineScanner)(d ReportDetails, err error){
+func parseReportDetails(sc *lineScanner) (d ReportDetails, err error) {
 	if !sc.Scan() {
 		return
 	}
 	return parseReportDetails0(sc)
 }
 
-func parseReportDetails0(sc *lineScanner)(d ReportDetails, err error){
+func parseReportDetails0(sc *lineScanner) (d ReportDetails, err error) {
 	d = make(ReportDetails)
 	line := sc.Bytes()
 	for {
@@ -58,10 +56,10 @@ func parseReportDetails0(sc *lineScanner)(d ReportDetails, err error){
 			return nil, ErrMissingColon
 		}
 		var (
-			key string = (string)(bytes.TrimSpace(line[:i]))
+			key    string = (string)(bytes.TrimSpace(line[:i]))
 			values []string
 		)
-		if line = bytes.TrimSpace(line[i + 1:]); len(line) > 0 {
+		if line = bytes.TrimSpace(line[i+1:]); len(line) > 0 {
 			values = []string{(string)(line)}
 		}
 		for {
@@ -82,16 +80,16 @@ func parseReportDetails0(sc *lineScanner)(d ReportDetails, err error){
 	}
 }
 
-func (d ReportDetails)set(key string, values []string){
+func (d ReportDetails) set(key string, values []string) {
 	d[strings.ToUpper(key)] = values
 }
 
-func (d ReportDetails)Has(key string)(ok bool){
+func (d ReportDetails) Has(key string) (ok bool) {
 	_, ok = d[strings.ToUpper(key)]
 	return
 }
 
-func (d ReportDetails)Get(key string)(value string){
+func (d ReportDetails) Get(key string) (value string) {
 	values, ok := d[strings.ToUpper(key)]
 	if !ok {
 		return ""
@@ -99,10 +97,9 @@ func (d ReportDetails)Get(key string)(value string){
 	return strings.Join(values, "\n")
 }
 
-func (d ReportDetails)GetValues(key string)(values []string){
+func (d ReportDetails) GetValues(key string) (values []string) {
 	return d[strings.ToUpper(key)]
 }
-
 
 // -- Head --
 type HeadThread struct {
@@ -110,7 +107,7 @@ type HeadThread struct {
 	Stacktrace Stacktrace `json:"stacktrace"`
 }
 
-func parseHeadThread(sc *lineScanner)(res HeadThread, err error){
+func parseHeadThread(sc *lineScanner) (res HeadThread, err error) {
 	if !sc.Scan() {
 		return
 	}
@@ -142,7 +139,7 @@ type AffectedLevel struct {
 	Stacktrace Stacktrace    `json:"stacktrace"`
 }
 
-func parseAffectedLevel(sc *lineScanner)(res AffectedLevel, err error){
+func parseAffectedLevel(sc *lineScanner) (res AffectedLevel, err error) {
 	if !sc.Scan() {
 		return
 	}
@@ -176,7 +173,7 @@ type DetailsItem struct {
 	Details ReportDetails `json:"details"`
 }
 
-func parseDetailsItem(sc *lineScanner)(res DetailsItem, err error){
+func parseDetailsItem(sc *lineScanner) (res DetailsItem, err error) {
 	if !sc.Scan() {
 		return
 	}
@@ -204,15 +201,15 @@ func parseDetailsItem(sc *lineScanner)(res DetailsItem, err error){
 	return
 }
 
-type CrashReport struct {     // ---- Minecraft Crash Report ----
-	Description   string        `json:"description"`     // Description:
-	Error         *JavaError    `json:"error"`
-	HeadThread    HeadThread    `json:"head"`            // -- Head --
-	AffectedLevel AffectedLevel `json:"affectedLevel"`   // -- Affected level --
-	OtherDetails  map[string]DetailsItem `json:"others"` // -- <KEY> --
+type CrashReport struct { // ---- Minecraft Crash Report ----
+	Description   string                 `json:"description"` // Description:
+	Error         *JavaError             `json:"error"`
+	HeadThread    HeadThread             `json:"head"`          // -- Head --
+	AffectedLevel AffectedLevel          `json:"affectedLevel"` // -- Affected level --
+	OtherDetails  map[string]DetailsItem `json:"others"`        // -- <KEY> --
 }
 
-func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
+func ParseCrashReport(r io.Reader) (report *CrashReport, err error) {
 	sc := newLineScanner(r)
 	for {
 		if !sc.Scan() {
@@ -250,7 +247,7 @@ func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
 			}
 			flag = 1
 		case strings.HasPrefix(uline, "-- ") && strings.HasSuffix(uline, " --"):
-			name := strings.ToUpper((string)(uline[len("-- "):len(uline) - len(" --")]))
+			name := strings.ToUpper((string)(uline[len("-- ") : len(uline)-len(" --")]))
 			switch {
 			case name == headThreadKey:
 				if report.HeadThread, err = parseHeadThread(sc); err != nil {
@@ -277,6 +274,6 @@ func ParseCrashReport(r io.Reader)(report *CrashReport, err error){
 	return
 }
 
-func (report *CrashReport)GetDetails(key string)(value DetailsItem){
+func (report *CrashReport) GetDetails(key string) (value DetailsItem) {
 	return report.OtherDetails[strings.ToUpper(key)]
 }

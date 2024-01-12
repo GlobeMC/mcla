@@ -1,5 +1,5 @@
-
 //go:build tinygo.wasm
+
 package main
 
 import (
@@ -13,7 +13,7 @@ import (
 
 type Map = map[string]any
 
-func asJsValue(v any)(res js.Value){
+func asJsValue(v any) (res js.Value) {
 	if v == nil {
 		return js.Null()
 	}
@@ -42,8 +42,8 @@ func asJsValue(v any)(res js.Value){
 	return js.ValueOf(v1)
 }
 
-var GoChannelIterator = (func()(cls js.Value){
-	cls = js.ValueOf(js.FuncOf(func(this js.Value, args []js.Value)(res any){
+var GoChannelIterator = (func() (cls js.Value) {
+	cls = js.ValueOf(js.FuncOf(func(this js.Value, args []js.Value) (res any) {
 		return
 	}))
 	cls.Set("name", "GoChannelIterator")
@@ -51,23 +51,23 @@ var GoChannelIterator = (func()(cls js.Value){
 	return
 })()
 
-var _emptyIterNextFn = (func()(js.Func){
-	cb := js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+var _emptyIterNextFn = (func() js.Func {
+	cb := js.FuncOf(func(_ js.Value, args []js.Value) (res any) {
 		resolve := args[0]
-		resolve.Invoke(Map{ "done": true, "value": nil })
+		resolve.Invoke(Map{"done": true, "value": nil})
 		return
 	})
 	emptyIterNextPromise := Promise.New(cb)
 	cb.Release()
-	return js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+	return js.FuncOf(func(_ js.Value, args []js.Value) (res any) {
 		return emptyIterNextPromise
 	})
 })()
 
-func NewChannelIteratorContext[T any](ctx context.Context, ch <-chan T)(iter js.Value){
+func NewChannelIteratorContext[T any](ctx context.Context, ch <-chan T) (iter js.Value) {
 	iter = GoChannelIterator.New()
 	var nextMethod js.Func
-	nextMethod = asyncFuncOf(func(this js.Value, args []js.Value)(res any){
+	nextMethod = asyncFuncOf(func(this js.Value, args []js.Value) (res any) {
 		select {
 		case <-ctx.Done():
 			panic(context.Cause(ctx))
@@ -75,9 +75,9 @@ func NewChannelIteratorContext[T any](ctx context.Context, ch <-chan T)(iter js.
 			if !ok {
 				iter.Set("next", _emptyIterNextFn)
 				nextMethod.Release()
-				return Map{ "done": true, "value": nil }
+				return Map{"done": true, "value": nil}
 			}
-			return Map{ "done": false, "value": val }
+			return Map{"done": false, "value": val}
 		}
 	})
 	iter.Set("next", nextMethod)
@@ -90,7 +90,7 @@ type readCloser struct {
 
 var _ io.ReadCloser = readCloser{}
 
-func (r readCloser)Close()(err error){
+func (r readCloser) Close() (err error) {
 	if c, ok := r.Reader.(io.Closer); ok {
 		return c.Close()
 	}
@@ -113,10 +113,11 @@ type (
 
 var _ io.ReaderAt = uint8ArrayReader{}
 var _ io.ReadCloser = readableStreamDefaultReaderWrapper{}
+
 // var _ io.Reader = readableStreamBYOBReaderWrapper{} // TODO if necessary
 
-func (r uint8ArrayReader)ReadAt(buf []byte, offset int64)(n int, err error){
-	sub := r.value.Call("subarray", (int)(offset), (int)(offset) + len(buf))
+func (r uint8ArrayReader) ReadAt(buf []byte, offset int64) (n int, err error) {
+	sub := r.value.Call("subarray", (int)(offset), (int)(offset)+len(buf))
 	n = js.CopyBytesToGo(buf, sub)
 	if n != len(buf) {
 		err = io.EOF
@@ -124,7 +125,7 @@ func (r uint8ArrayReader)ReadAt(buf []byte, offset int64)(n int, err error){
 	return
 }
 
-func (r readableStreamDefaultReaderWrapper)readFromInternalBuf(buf []byte)(n int, err error){
+func (r readableStreamDefaultReaderWrapper) readFromInternalBuf(buf []byte) (n int, err error) {
 	if r.buf != nil {
 		n, err = r.buf.ReadAt(buf, (int64)(r.off))
 		r.off += n
@@ -136,7 +137,7 @@ func (r readableStreamDefaultReaderWrapper)readFromInternalBuf(buf []byte)(n int
 	return
 }
 
-func (r readableStreamDefaultReaderWrapper)Read(buf []byte)(n int, err error){
+func (r readableStreamDefaultReaderWrapper) Read(buf []byte) (n int, err error) {
 	if len(buf) == 0 {
 		return
 	}
@@ -154,25 +155,25 @@ func (r readableStreamDefaultReaderWrapper)Read(buf []byte)(n int, err error){
 	return r.readFromInternalBuf(buf)
 }
 
-func (r readableStreamDefaultReaderWrapper)Close()(err error){
+func (r readableStreamDefaultReaderWrapper) Close() (err error) {
 	awaitPromise(r.value.Call("cancel"))
 	r.value.Call("releaseLock")
 	return
 }
 
-func wrapJsValueAsReader(value js.Value)(r io.Reader){
+func wrapJsValueAsReader(value js.Value) (r io.Reader) {
 	switch value.Type() {
 	case js.TypeString:
 		return strings.NewReader(value.String())
 	case js.TypeObject:
 		if value.InstanceOf(Uint8Array) {
-			return io.NewSectionReader(uint8ArrayReader{value}, 0, (1 <<  63) - 1)
+			return io.NewSectionReader(uint8ArrayReader{value}, 0, (1<<63)-1)
 		}
 		if value.InstanceOf(ReadableStream) {
-			value = value.Call("getReader"/*, Map{ "mode": "byob" } TODO*/)
+			value = value.Call("getReader" /*, Map{ "mode": "byob" } TODO*/)
 		}
 		if value.InstanceOf(ReadableStreamDefaultReader) {
-			return readableStreamDefaultReaderWrapper{ value: value }
+			return readableStreamDefaultReaderWrapper{value: value}
 		}
 		// if value.InstanceOf(ReadableStreamBYOBReader) { // TODO
 		// 	return readableStreamBYOBReaderWrapper{ value }
@@ -183,16 +184,20 @@ func wrapJsValueAsReader(value js.Value)(r io.Reader){
 }
 
 // have to ensure the argument is a really JS Promise instance
-func wrapPromise(promise js.Value)(done <-chan js.Value, err <-chan error){
+func wrapPromise(promise js.Value) (done <-chan js.Value, err <-chan error) {
 	done0 := make(chan js.Value, 1)
 	err0 := make(chan error, 1)
 
-	var success, failed	js.Func
-	success = js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+	var success, failed js.Func
+	success = js.FuncOf(func(_ js.Value, args []js.Value) (res any) {
+		success.Release()
+		failed.Release()
 		done0 <- args[0]
 		return
 	})
-	failed = js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+	failed = js.FuncOf(func(_ js.Value, args []js.Value) (res any) {
+		success.Release()
+		failed.Release()
 		err0 <- js.Error{args[0]}
 		return
 	})
@@ -200,7 +205,7 @@ func wrapPromise(promise js.Value)(done <-chan js.Value, err <-chan error){
 	return done0, err0
 }
 
-func awaitPromiseContext(ctx context.Context, promise js.Value)(res js.Value, err error){
+func awaitPromiseContext(ctx context.Context, promise js.Value) (res js.Value, err error) {
 	if promise.Type() != js.TypeObject || !promise.InstanceOf(Promise) {
 		return promise, nil
 	}
@@ -216,27 +221,27 @@ func awaitPromiseContext(ctx context.Context, promise js.Value)(res js.Value, er
 	}
 }
 
-func awaitPromise(promise js.Value)(res js.Value, err error){
+func awaitPromise(promise js.Value) (res js.Value, err error) {
 	return awaitPromiseContext(bgCtx, promise)
 }
 
-func asyncFuncOf(fn func(this js.Value, args []js.Value)(res any))(js.Func){
-	return js.FuncOf(func(this js.Value, args []js.Value)(res any){
+func asyncFuncOf(fn func(this js.Value, args []js.Value) (res any)) js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) (res any) {
 		var resolve, reject js.Value
-		pcb := js.FuncOf(func(_ js.Value, args []js.Value)(res any){
+		pcb := js.FuncOf(func(_ js.Value, args []js.Value) (res any) {
 			resolve, reject = args[0], args[1]
 			return
 		})
 		res = Promise.New(pcb)
 		pcb.Release()
-		go func(){
-			defer func(){
+		go func() {
+			defer func() {
 				if e := recover(); e != nil {
 					if je, ok := e.(js.Error); ok {
 						reject.Invoke(je.Value)
-					}else if er, ok := e.(error); ok {
+					} else if er, ok := e.(error); ok {
 						reject.Invoke(er.Error())
-					}else{
+					} else {
 						reject.Invoke(asJsValue(e))
 					}
 				}
@@ -248,7 +253,7 @@ func asyncFuncOf(fn func(this js.Value, args []js.Value)(res any))(js.Func){
 	})
 }
 
-func foreachJsIterator(iterator js.Value, callback func(js.Value)(error))(err error){
+func foreachJsIterator(iterator js.Value, callback func(js.Value) error) (err error) {
 	for {
 		res := iterator.Call("next")
 		if !res.Get("done").Bool() {
