@@ -131,14 +131,14 @@ func (db *ErrDB) ForEachErrors(callback func(*mcla.ErrorDesc) error) (err error)
 	resCh := make(chan *mcla.ErrorDesc, 2)
 
 	for i := 1; i <= db.cachedVersion.ErrorIncId; i++ {
-		go func() {
+		go func(i int) {
 			desc, err := db.GetErrorDesc(i)
 			if err != nil {
 				cancel(err)
 				return
 			}
 			resCh <- desc
-		}()
+		}(i)
 	}
 	for i := 1; i <= db.cachedVersion.ErrorIncId; i++ {
 		select {
