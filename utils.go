@@ -73,6 +73,12 @@ func lcsPercent[T comparable](a, b []T) (v float32) {
 	return n / (float32)(len(a))
 }
 
-func lineMatchPercent(a, b string) float32 {
-	return lcsPercent(([]rune)(a), ([]rune)(b))
+func lineMatchPercent(text, match string) float32 {
+	if prefix, ok := strings.CutSuffix(match, " *"); ok {
+		if strings.HasPrefix(text, prefix) {
+			return 1.0
+		}
+	}
+
+	return lcsPercent(([]rune)(text), ([]rune)(match))
 }
