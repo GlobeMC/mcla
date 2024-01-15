@@ -6,7 +6,7 @@ import (
 
 const LICENSE = `mcla (Minecraft Log Analyzer) v%s
 Copyright (C) 2023 <zyxkad@gmail.com> all rights reserved
-Under GNU GENERAL PUBLIC LICENSE v3
+Under GNU AFFERO GENERAL PUBLIC LICENSE v3
 `
 
 const HELP_MESSAGE = `

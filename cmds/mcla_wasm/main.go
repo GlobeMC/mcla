@@ -44,6 +44,11 @@ func getAPI() (m Map) {
 	}
 }
 
+const LICENSE = `mcla (Minecraft Log Analyzer) v%s
+Copyright (C) 2023 <zyxkad@gmail.com> all rights reserved
+Under GNU AFFERO GENERAL PUBLIC LICENSE v3
+`
+
 func main() {
 	defaultErrDB.RefreshCache()
 
@@ -55,7 +60,7 @@ func main() {
 	})
 	global.Set("MCLA", api)
 
-	fmt.Printf("MCLA-%s loaded\n", version)
+	fmt.Printf(LICENSE, version)
 	defer fmt.Printf("MCLA-%s unloaded\n", version)
 
 	<-bgCtx.Done()
