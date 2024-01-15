@@ -2,6 +2,7 @@
 package ghdb
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -126,13 +127,27 @@ func (db *ErrDB) GetErrorDesc(id int) (desc *mcla.ErrorDesc, err error) {
 func (db *ErrDB) ForEachErrors(callback func(*mcla.ErrorDesc) error) (err error) {
 	db.checkUpdate()
 
+	ctx, cancel := context.WithCancelCause(context.Background())
+	resCh := make(chan *mcla.ErrorDesc, 2)
+
 	for i := 1; i <= db.cachedVersion.ErrorIncId; i++ {
-		var desc *mcla.ErrorDesc
-		if desc, err = db.GetErrorDesc(i); err != nil {
-			return
-		}
-		if err = callback(desc); err != nil {
-			return
+		go func() {
+			desc, err := db.GetErrorDesc(i)
+			if err != nil {
+				cancel(err)
+				return
+			}
+			resCh <- desc
+		}()
+	}
+	for i := 1; i <= db.cachedVersion.ErrorIncId; i++ {
+		select {
+		case desc := <-resCh:
+			if err = callback(desc); err != nil {
+				return
+			}
+		case <-ctx.Done():
+			return context.Cause(ctx)
 		}
 	}
 	return
