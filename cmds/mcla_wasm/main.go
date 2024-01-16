@@ -58,7 +58,7 @@ func main() {
 	})
 	global.Set("MCLA", api)
 
-	fmt.Printf(LICENSE, version)
+	console.Call("log", fmt.Sprintf(LICENSE, version))
 	defer fmt.Printf("MCLA-%s unloaded\n", version)
 
 	<-bgCtx.Done()

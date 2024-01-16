@@ -19,6 +19,7 @@ var (
 	// function
 	jsFetch = global.Get("fetch")
 	// API
+	console        = global.Get("console")
 	caches         = global.Get("caches")
 	sessionStorage = global.Get("sessionStorage")
 	localStorage   = global.Get("localStorage")
