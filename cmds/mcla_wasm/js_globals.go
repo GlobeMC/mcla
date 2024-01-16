@@ -9,6 +9,8 @@ var (
 	global = js.Global()
 	// class
 	Object                      = global.Get("Object")
+	Reflect                     = global.Get("Reflect")
+	Symbol                      = global.Get("Symbol")
 	Promise                     = global.Get("Promise")
 	Uint8Array                  = global.Get("Uint8Array")
 	ReadableStream              = global.Get("ReadableStream")

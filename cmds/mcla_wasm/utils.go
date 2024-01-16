@@ -1,10 +1,9 @@
-//go:build tinygo.wasm
-
 package main
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -66,21 +65,29 @@ var _emptyIterNextFn = (func() js.Func {
 
 func NewChannelIteratorContext[T any](ctx context.Context, ch <-chan T) (iter js.Value) {
 	iter = GoChannelIterator.New()
-	var nextMethod js.Func
-	nextMethod = asyncFuncOf(func(this js.Value, args []js.Value) (res any) {
+	var nextMethod, symAsyncItor js.Func
+	nextMethod = asyncFuncOf(func(this js.Value, args []js.Value) (res any, err error) {
 		select {
 		case <-ctx.Done():
-			panic(context.Cause(ctx))
+			iter.Set("next", _emptyIterNextFn)
+			nextMethod.Release()
+			symAsyncItor.Release()
+			return nil, context.Cause(ctx)
 		case val, ok := <-ch:
 			if !ok {
 				iter.Set("next", _emptyIterNextFn)
 				nextMethod.Release()
-				return Map{"done": true, "value": nil}
+				symAsyncItor.Release()
+				return Map{"done": true, "value": nil}, nil
 			}
-			return Map{"done": false, "value": val}
+			return Map{"done": false, "value": val}, nil
 		}
 	})
+	symAsyncItor = js.FuncOf(func(this js.Value, args []js.Value) (res any) {
+		return iter
+	})
 	iter.Set("next", nextMethod)
+	Reflect.Call("set", iter, Symbol.Get("asyncIterator"), symAsyncItor)
 	return
 }
 
@@ -161,26 +168,25 @@ func (r readableStreamDefaultReaderWrapper) Close() (err error) {
 	return
 }
 
-func wrapJsValueAsReader(value js.Value) (r io.Reader) {
+func wrapJsValueAsReader(value js.Value) (r io.Reader, err error) {
 	switch value.Type() {
 	case js.TypeString:
-		return strings.NewReader(value.String())
+		return strings.NewReader(value.String()), nil
 	case js.TypeObject:
 		if value.InstanceOf(Uint8Array) {
-			return io.NewSectionReader(uint8ArrayReader{value}, 0, (1<<63)-1)
+			return io.NewSectionReader(uint8ArrayReader{value}, 0, (1<<63)-1), nil
 		}
 		if value.InstanceOf(ReadableStream) {
 			value = value.Call("getReader" /*, Map{ "mode": "byob" } TODO*/)
 		}
 		if value.InstanceOf(ReadableStreamDefaultReader) {
-			return readableStreamDefaultReaderWrapper{value: value}
+			return readableStreamDefaultReaderWrapper{value: value}, nil
 		}
 		// if value.InstanceOf(ReadableStreamBYOBReader) { // TODO
 		// 	return readableStreamBYOBReaderWrapper{ value }
 		// }
 	}
-	panic("Unexpect value type " + value.Type().String())
-	return
+	return nil, fmt.Errorf("Unexpect value type %s", value.Type())
 }
 
 // have to ensure the argument is a really JS Promise instance
@@ -225,7 +231,9 @@ func awaitPromise(promise js.Value) (res js.Value, err error) {
 	return awaitPromiseContext(bgCtx, promise)
 }
 
-func asyncFuncOf(fn func(this js.Value, args []js.Value) (res any)) js.Func {
+type asyncFuncSignature = func(this js.Value, args []js.Value) (res any, err error)
+
+func asyncFuncOf(fn asyncFuncSignature) js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) (res any) {
 		var resolve, reject js.Value
 		pcb := js.FuncOf(func(_ js.Value, args []js.Value) (res any) {
@@ -246,8 +254,11 @@ func asyncFuncOf(fn func(this js.Value, args []js.Value) (res any)) js.Func {
 					}
 				}
 			}()
-			res := fn(this, args)
-			resolve.Invoke(asJsValue(res))
+			if res, err := fn(this, args); err != nil {
+				reject.Invoke(err.Error())
+			} else {
+				resolve.Invoke(asJsValue(res))
+			}
 		}()
 		return
 	})

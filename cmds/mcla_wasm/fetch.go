@@ -35,11 +35,15 @@ func fetchContext(ctx context.Context, url string, opts ...Map) (res *Response, 
 		header.Set(v.Index(0).String(), v.Index(1).String())
 		return
 	})
+	var body io.Reader
+	if body, err = wrapJsValueAsReader(res0.Get("body")); err != nil {
+		return
+	}
 	res = &Response{
 		native:     res0,
 		Status:     res0.Get("statusText").String(),
 		StatusCode: res0.Get("status").Int(),
-		Body:       readCloser{wrapJsValueAsReader(res0.Get("body"))},
+		Body:       readCloser{body},
 		Type:       res0.Get("type").String(),
 		Url:        res0.Get("url").String(),
 		Header:     header,
