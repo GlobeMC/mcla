@@ -11,6 +11,7 @@ var (
 	Reflect                     = global.Get("Reflect")
 	Symbol                      = global.Get("Symbol")
 	Promise                     = global.Get("Promise")
+	Array                       = global.Get("Array")
 	Uint8Array                  = global.Get("Uint8Array")
 	ReadableStream              = global.Get("ReadableStream")
 	ReadableStreamDefaultReader = global.Get("ReadableStreamDefaultReader")

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	// "strings"
+	"strings"
 	"sync"
 	"syscall/js"
 
@@ -43,15 +43,28 @@ func NewJsStorageCache(storage js.Value, prefix string) *JsStorageCache {
 	}
 }
 
-// TODO
 func (s *JsStorageCache) Clear() {
-	// leng := s.storage.Get("length").Int()
-	// for i := 0; i < leng; i++ {
-	// 	key := s.storage.Call("key", i).String()
-	// 	if strings.HasPrefix(key, s.prefix) {
-	// 		s.storage.Call("removeItem", key)
-	// 	}
-	// }
+	obj := s.storage.Get("length")
+	if obj.Type() == js.TypeNumber {
+		leng := obj.Int()
+		for i := 0; i < leng; i++ {
+			key := s.storage.Call("key", i).String()
+			if strings.HasPrefix(key, s.prefix) {
+				s.storage.Call("removeItem", key)
+			}
+		}
+	}else if keysFn := s.storage.Get("keys"); keysFn.Type() == js.TypeFunction{
+		keys, _ := awaitPromise(keysFn.Invoke())
+		if keys.InstanceOf(Array) {
+			leng := keys.Length()
+			for i := 0; i < leng; i++ {
+				key := keys.Index(i).String()
+				if strings.HasPrefix(key, s.prefix) {
+					s.storage.Call("removeItem", key)
+				}
+			}
+		}
+	}
 }
 
 func (s *JsStorageCache) Get(key string) string {
@@ -63,7 +76,10 @@ func (s *JsStorageCache) Get(key string) string {
 	}
 	item := s.storage.Call("getItem", s.prefix+key)
 	if item.Truthy() {
-		return item.String()
+		res, _ := awaitPromise(item)
+		if res.Truthy() {
+			return res.String()
+		}
 	}
 	return ""
 }
