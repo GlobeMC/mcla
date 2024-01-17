@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"strings"
+	// "strings"
 	"sync"
 	"syscall/js"
 
