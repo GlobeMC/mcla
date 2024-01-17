@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path"
-	// "sync"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -34,6 +34,7 @@ type versionData struct {
 
 type ErrDB struct {
 	Fetch func(path string) (io.ReadCloser, error)
+	Cache Cache
 
 	checking      atomic.Bool
 	cachedVersion versionData
@@ -76,33 +77,52 @@ func (db *ErrDB) checkUpdate() error {
 }
 
 func (db *ErrDB) RefreshCache() (err error) {
+	if db.cachedVersion == (versionData{}) {
+		version := db.Cache.Get("version")
+		json.Unmarshal(([]byte)(version), &db.cachedVersion)
+	}
 	newVersion, err := db.fetchGhDBVersion()
 	if err != nil {
 		return
 	}
-	// TODO: do we really need caches?
 	if newVersion.Major != db.cachedVersion.Major || newVersion.Minor != db.cachedVersion.Minor {
-		// TODO: refresh all data
 		db.cachedVersion = newVersion
+		db.Cache.Clear()
+		var wg sync.WaitGroup
+		wg.Add(newVersion.ErrorIncId)
+		for i := 1; i <= newVersion.ErrorIncId; i++ {
+			go func(i int) {
+				defer wg.Done()
+				db.GetErrorDesc(i) // refresh cache
+			}(i)
+		}
+		wg.Add(newVersion.SolutionIncId)
+		for i := 1; i <= newVersion.SolutionIncId; i++ {
+			go func(i int) {
+				defer wg.Done()
+				db.GetSolution(i) // refresh cache
+			}(i)
+		}
+		wg.Wait()
 	} else if newVersion.Patch != db.cachedVersion.Patch {
-		// var wg sync.WaitGroup
-		// wg.Add(newVersion.ErrorIncId - db.cachedVersion.ErrorIncId)
-		// for i := db.cachedVersion.ErrorIncId + 1; i <= newVersion.ErrorIncId; i++ {
-		// 	go func(i int) {
-		// 		defer wg.Done()
-		// 		db.GetErrorDesc(i) // refresh cache
-		// 	}(i)
-		// }
-		// wg.Wait()
+		var wg sync.WaitGroup
+		wg.Add(newVersion.ErrorIncId - db.cachedVersion.ErrorIncId)
+		for i := db.cachedVersion.ErrorIncId + 1; i <= newVersion.ErrorIncId; i++ {
+			go func(i int) {
+				defer wg.Done()
+				db.GetErrorDesc(i) // refresh cache
+			}(i)
+		}
+		wg.Wait()
 		db.cachedVersion.ErrorIncId = newVersion.ErrorIncId
-		// wg.Add(newVersion.SolutionIncId - db.cachedVersion.SolutionIncId)
-		// for i := db.cachedVersion.SolutionIncId + 1; i <= newVersion.SolutionIncId; i++ {
-		// 	go func(i int) {
-		// 		defer wg.Done()
-		// 		db.GetSolution(i) // refresh cache
-		// 	}(i)
-		// }
-		// wg.Wait()
+		wg.Add(newVersion.SolutionIncId - db.cachedVersion.SolutionIncId)
+		for i := db.cachedVersion.SolutionIncId + 1; i <= newVersion.SolutionIncId; i++ {
+			go func(i int) {
+				defer wg.Done()
+				db.GetSolution(i) // refresh cache
+			}(i)
+		}
+		wg.Wait()
 		db.cachedVersion.SolutionIncId = newVersion.SolutionIncId
 		db.cachedVersion.Patch = newVersion.Patch
 	}
@@ -112,13 +132,27 @@ func (db *ErrDB) RefreshCache() (err error) {
 }
 
 func (db *ErrDB) GetErrorDesc(id int) (desc *mcla.ErrorDesc, err error) {
-	res, err := db.fetch("errors", fmt.Sprintf("%d.json", id))
+	cacheKey := fmt.Sprintf("error.%d", id)
+	buf := db.Cache.GetOrSet(cacheKey, func() string {
+		var res io.ReadCloser
+		if res, err = db.fetch("errors", fmt.Sprintf("%d.json", id)); err != nil {
+			return ""
+		}
+		var buf []byte
+		buf, err = io.ReadAll(res)
+		res.Close()
+		if err != nil {
+			return ""
+		}
+		return (string)(buf)
+	})
 	if err != nil {
 		return
 	}
-	defer res.Close()
 	desc = new(mcla.ErrorDesc)
-	if err = json.NewDecoder(res).Decode(&desc); err != nil {
+	if err = json.Unmarshal(([]byte)(buf), desc); err != nil {
+		db.Cache.Remove(cacheKey)
+		desc = nil
 		return
 	}
 	return
@@ -154,13 +188,26 @@ func (db *ErrDB) ForEachErrors(callback func(*mcla.ErrorDesc) error) (err error)
 }
 
 func (db *ErrDB) GetSolution(id int) (sol *mcla.SolutionDesc, err error) {
-	var res io.ReadCloser
-	if res, err = db.fetch("solutions", fmt.Sprintf("%d.json", id)); err != nil {
+	cacheKey := fmt.Sprintf("solution.%d", id)
+	buf := db.Cache.GetOrSet(cacheKey, func() string {
+		var res io.ReadCloser
+		if res, err = db.fetch("solutions", fmt.Sprintf("%d.json", id)); err != nil {
+			return ""
+		}
+		var buf []byte
+		buf, err = io.ReadAll(res)
+		res.Close()
+		if err != nil {
+			return ""
+		}
+		return (string)(buf)
+	})
+	if err != nil {
 		return
 	}
-	defer res.Close()
 	sol = new(mcla.SolutionDesc)
-	if err = json.NewDecoder(res).Decode(sol); err != nil {
+	if err = json.Unmarshal(([]byte)(buf), sol); err != nil {
+		db.Cache.Remove(cacheKey)
 		sol = nil
 		return
 	}

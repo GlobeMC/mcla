@@ -42,7 +42,7 @@ func getAPI() (m Map) {
 	}
 }
 
-const LICENSE = `mcla (Minecraft Log Analyzer) v%s
+const LICENSE = `mcla (Minecraft Log Analyzer) %s
 Copyright (C) 2023 <zyxkad@gmail.com> all rights reserved
 Under GNU AFFERO GENERAL PUBLIC LICENSE v3
 `

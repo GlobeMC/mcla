@@ -1,4 +1,4 @@
 
 # MCLA \| Minecraft Log Analyzer
 
-TODO README
+A Minecraft crash analyzer written in Go
