@@ -60,7 +60,7 @@ func (s *JsStorageCache) Get(key string) string {
 	if ch != nil {
 		<-ch
 	}
-	item := s.storage.Call("getItem", s.prefix + key)
+	item := s.storage.Call("getItem", s.prefix+key)
 	if item.Truthy() {
 		return item.String()
 	}
@@ -68,11 +68,11 @@ func (s *JsStorageCache) Get(key string) string {
 }
 
 func (s *JsStorageCache) Set(key string, value string) {
-	s.storage.Call("setItem", s.prefix + key, value)
+	s.storage.Call("setItem", s.prefix+key, value)
 }
 
 func (s *JsStorageCache) Remove(key string) {
-	s.storage.Call("removeItem", s.prefix + key)
+	s.storage.Call("removeItem", s.prefix+key)
 }
 
 func (s *JsStorageCache) GetOrSet(key string, setter func() string) string {
