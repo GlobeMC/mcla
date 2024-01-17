@@ -43,14 +43,15 @@ func NewJsStorageCache(storage js.Value, prefix string) *JsStorageCache {
 	}
 }
 
+// TODO
 func (s *JsStorageCache) Clear() {
-	leng := s.storage.Get("length").Int()
-	for i := 0; i < leng; i++ {
-		key := s.storage.Call("key", i).String()
-		if strings.HasPrefix(key, s.prefix) {
-			s.storage.Call("removeItem", key)
-		}
-	}
+	// leng := s.storage.Get("length").Int()
+	// for i := 0; i < leng; i++ {
+	// 	key := s.storage.Call("key", i).String()
+	// 	if strings.HasPrefix(key, s.prefix) {
+	// 		s.storage.Call("removeItem", key)
+	// 	}
+	// }
 }
 
 func (s *JsStorageCache) Get(key string) string {
