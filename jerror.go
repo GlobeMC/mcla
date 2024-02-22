@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	javaErrorMatcher = regexp.MustCompile(`^(?:\s*Exception in thread "[^"]+"\s+)?([\w\d$_]+(?:\.[\w\d$_]+)+):\s+(.*)$`)
+	javaErrorMatcher = regexp.MustCompile(`^\s*(?:\s*Exception in thread "[^"]+"\s+)?([\w\d$_]+(?:\.[\w\d$_]+)+):\s+(.*)$`)
 	stackInfoMatcher = regexp.MustCompile(`^\s+at\s+([\w\d$_]+(?:\.[\w\d$_]+)+)\.([\w\d$_<>]+)`)
 )
 
@@ -66,7 +66,6 @@ func parseStacktrace0(sc *lineScanner) (st Stacktrace) {
 			return
 		}
 	}
-	return
 }
 
 func parseJavaError(sc *lineScanner) (je *JavaError) {
@@ -134,7 +133,7 @@ func scanJavaErrors(r io.Reader, cb func(*JavaError)) (err error) {
 				Stacktrace: st,
 				LineNo:     lineNo,
 			}
-			if line, ok := strings.CutPrefix(sc.Text(), "Caused by: "); ok {
+			if line, ok := strings.CutPrefix(strings.TrimSpace(sc.Text()), "Caused by: "); ok {
 				je.CausedBy = parseJavaError0(line, sc)
 			}
 			cb(je)

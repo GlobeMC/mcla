@@ -130,7 +130,6 @@ func parseHeadThread(sc *lineScanner) (res HeadThread, err error) {
 			}
 		}
 	}
-	return
 }
 
 // -- Affected level --
@@ -166,7 +165,6 @@ func parseAffectedLevel(sc *lineScanner) (res AffectedLevel, err error) {
 		}
 		firstline = false
 	}
-	return
 }
 
 type DetailsItem struct {
@@ -198,7 +196,6 @@ func parseDetailsItem(sc *lineScanner) (res DetailsItem, err error) {
 		}
 		firstline = false
 	}
-	return
 }
 
 type CrashReport struct { // ---- Minecraft Crash Report ----
@@ -271,7 +268,6 @@ func ParseCrashReport(r io.Reader) (report *CrashReport, err error) {
 			}
 		}
 	}
-	return
 }
 
 func (report *CrashReport) GetDetails(key string) (value DetailsItem) {
