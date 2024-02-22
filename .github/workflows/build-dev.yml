@@ -22,8 +22,8 @@ jobs:
         name: Build wasm
         run: |
           mkdir output
-          /usr/bin/env bash ./cmds/mcla_wasm/build.sh -o ./output/mcla.wasm -ldflags="-X 'main.version=hash-${GITHUB_SHA}'"
-          cp ./cmds/mcla_wasm/wasm_exec.js ./output/wasm_exec.js
+          /usr/bin/env bash ./cmd/mcla_wasm/build.sh -o ./output/mcla.wasm -ldflags="-X 'main.version=hash-${GITHUB_SHA}'"
+          cp ./cmd/mcla_wasm/wasm_exec.js ./output/wasm_exec.js
       -
         name: Upload wasm output to artifact
         uses: actions/upload-artifact@v2

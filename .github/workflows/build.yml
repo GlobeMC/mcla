@@ -42,7 +42,7 @@ jobs:
         run: go test -v .
       -
         name: Build
-        run: /usr/bin/env bash ./cmds/mcla/build.sh -ldflags="-X 'main.version=${GITHUB_REF#refs/*/}'"
+        run: /usr/bin/env bash ./cmd/mcla/build.sh -ldflags="-X 'main.version=${GITHUB_REF#refs/*/}'"
       -
         name: Upload Release Assets
         uses: zyxkad/upload-release-asset-dir@v1
@@ -68,8 +68,8 @@ jobs:
         name: Build wasm
         run: |
           mkdir output
-          /usr/bin/env bash ./cmds/mcla_wasm/build.sh -o ./output/mcla.wasm -opt=z -no-debug -ldflags="-X 'main.version=${GITHUB_REF#refs/*/}'"
-          cp ./cmds/mcla_wasm/wasm_exec.js ./output/wasm_exec.js
+          /usr/bin/env bash ./cmd/mcla_wasm/build.sh -o ./output/mcla.wasm -opt=z -no-debug -ldflags="-X 'main.version=${GITHUB_REF#refs/*/}'"
+          cp ./cmd/mcla_wasm/wasm_exec.js ./output/wasm_exec.js
       -
         name: Upload wasm output to artifact
         uses: actions/upload-artifact@v2
