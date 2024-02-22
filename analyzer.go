@@ -49,7 +49,7 @@ func (a *Analyzer) DoError(jerr *JavaError) (matched []SolutionPossibility, err 
 				}
 			}
 			if len(e.Message) == 0 { // when ignore error message, error type provide 100% score weight
-				sol.Match /= 10 / 100
+				sol.Match /= 10.0 / 100
 			} else {
 				jemsg, _ := split(jerr.Message, '\n')
 				matches := lineMatchPercent(jemsg, e.Message) // error message weight: 90%

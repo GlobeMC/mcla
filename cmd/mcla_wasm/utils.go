@@ -32,10 +32,12 @@ func asJsValue(v any) (res js.Value) {
 	}
 	buf, err := json.Marshal(v)
 	if err != nil {
+		fmt.Println("Error in asJsValue: json.Marshal:", err)
 		panic(err)
 	}
 	var v1 any
 	if err = json.Unmarshal(buf, &v1); err != nil {
+		fmt.Println("Error in asJsValue: json.Unmarshal:", err)
 		panic(err)
 	}
 	return js.ValueOf(v1)
