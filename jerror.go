@@ -8,7 +8,7 @@ import (
 
 var (
 	javaErrorMatcher = regexp.MustCompile(`^\s*(?:\s*Exception in thread "[^"]+"\s+)?([\w\d$_]+(?:\.[\w\d$_]+)+):\s+(.*)$`)
-	stackInfoMatcher = regexp.MustCompile(`^\s+at\s+([\w\d$_]+(?:\.[\w\d$_]+)+)\.([\w\d$_<>]+)`)
+	stackInfoMatcher = regexp.MustCompile(`^\s*at\s+([\w\d$_]+(?:\.[\w\d$_]+)+)\.([\w\d$_<>]+)`)
 )
 
 type (
@@ -58,6 +58,11 @@ func parseStacktrace0(sc *lineScanner) (st Stacktrace) {
 	)
 	for {
 		line := sc.Text()
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "... ") && strings.HasSuffix(line, " more") {
+			sc.Scan() // move to the next line
+			return
+		}
 		if info, ok = parseStackInfoFrom(line); !ok {
 			return
 		}
@@ -79,13 +84,13 @@ func parseJavaError0(line string, sc *lineScanner) (je *JavaError) {
 	je = new(JavaError)
 	i := strings.IndexByte(line, ':')
 	if i == -1 {
-		je.Message = line
+		je.Class = line
 	} else {
 		je.Class, je.Message = line[:i], strings.TrimSpace(line[i+1:])
 	}
 	je.Stacktrace = parseStacktrace(sc)
-	line = sc.Text()
-	if line, ok := strings.CutPrefix(line, "Caused by: "); ok {
+	je.LineNo = sc.Count()
+	if line, ok := strings.CutPrefix(strings.TrimSpace(sc.Text()), "Caused by: "); ok {
 		je.CausedBy = parseJavaError0(line, sc)
 	}
 	return
