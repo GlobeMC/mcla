@@ -53,7 +53,7 @@ func (s *JsStorageCache) Clear() {
 				s.storage.Call("removeItem", key)
 			}
 		}
-	}else if keysFn := s.storage.Get("keys"); keysFn.Type() == js.TypeFunction{
+	} else if keysFn := s.storage.Get("keys"); keysFn.Type() == js.TypeFunction {
 		keys, _ := awaitPromise(keysFn.Invoke())
 		if keys.InstanceOf(Array) {
 			leng := keys.Length()

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"time"
 )
 
 type SolutionPossibility struct {
@@ -24,6 +25,10 @@ var (
 
 type Analyzer struct {
 	DB ErrorDB
+
+	errMux        sync.RWMutex
+	lastUpdateErr time.Time
+	cachedErrors  []*ErrorDesc
 }
 
 func NewAnalyzer(db ErrorDB) (a *Analyzer) {
@@ -32,10 +37,46 @@ func NewAnalyzer(db ErrorDB) (a *Analyzer) {
 	}
 }
 
+func (a *Analyzer) UpdateErrors() (err error) {
+	a.errMux.Lock()
+	defer a.errMux.Unlock()
+	return a.updateErrorsLocked()
+}
+
+func (a *Analyzer) updateErrorsLocked() (err error) {
+	errors := make([]*ErrorDesc, 0, 64)
+	if err = a.DB.ForEachErrors(func(e *ErrorDesc) error {
+		errors = append(errors, e)
+		return nil
+	}); err != nil {
+		return
+	}
+	a.lastUpdateErr = time.Now()
+	a.cachedErrors = errors
+	return
+}
+
+func (a *Analyzer) getErrors() []*ErrorDesc {
+	{
+		a.errMux.RLock()
+		needUpdate := a.lastUpdateErr.IsZero() || time.Now().After(a.lastUpdateErr.Add(time.Hour))
+		a.errMux.RUnlock()
+		if needUpdate {
+			a.errMux.Lock()
+			if a.lastUpdateErr.IsZero() || time.Now().After(a.lastUpdateErr.Add(time.Hour)) {
+				a.updateErrorsLocked()
+			}
+			a.errMux.Unlock()
+		}
+	}
+	return a.cachedErrors
+}
+
 func (a *Analyzer) DoError(jerr *JavaError) (matched []SolutionPossibility, err error) {
+	errors := a.getErrors()
 	for jerr != nil {
 		epkg, ecls := rsplit(jerr.Class, '.')
-		a.DB.ForEachErrors(func(e *ErrorDesc) (err error) {
+		for _, e := range errors {
 			sol := SolutionPossibility{
 				ErrorDesc: e,
 			}
@@ -62,8 +103,7 @@ func (a *Analyzer) DoError(jerr *JavaError) (matched []SolutionPossibility, err 
 			if sol.Match != 0 { // have any matches
 				matched = append(matched, sol)
 			}
-			return
-		})
+		}
 		jerr = jerr.CausedBy
 	}
 	if matched == nil {
