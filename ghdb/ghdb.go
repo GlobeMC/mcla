@@ -166,6 +166,7 @@ func (db *ErrDB) ForEachErrors(callback func(*mcla.ErrorDesc) error) (err error)
 
 	for i := 1; i <= db.cachedVersion.ErrorIncId; i++ {
 		go func(i int) {
+			println("getting error", i)
 			desc, err := db.GetErrorDesc(i)
 			if err != nil {
 				cancel(err)
