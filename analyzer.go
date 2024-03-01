@@ -73,38 +73,34 @@ func (a *Analyzer) getErrors() []*ErrorDesc {
 }
 
 func (a *Analyzer) DoError(jerr *JavaError) (matched []SolutionPossibility, err error) {
-	errors := a.getErrors()
-	for jerr != nil {
-		epkg, ecls := rsplit(jerr.Class, '.')
-		for _, e := range errors {
-			sol := SolutionPossibility{
-				ErrorDesc: e,
-			}
-			epkg2, ecls2 := rsplit(e.Error, '.')
-			ignoreErrorTyp := len(ecls2) == 0 || ecls2 == "*"
-			if !ignoreErrorTyp && ecls2 == ecls { // error type weight: 10%
-				if epkg2 == "*" || epkg == epkg2 {
-					sol.Match = 0.1 // 10%
-				} else {
-					sol.Match = 0.05 // 5%
-				}
-			}
-			if len(e.Message) == 0 { // when ignore error message, error type provide 100% score weight
-				sol.Match /= 10.0 / 100
+	epkg, ecls := rsplit(jerr.Class, '.')
+	for _, e := range a.getErrors() {
+		sol := SolutionPossibility{
+			ErrorDesc: e,
+		}
+		epkg2, ecls2 := rsplit(e.Error, '.')
+		ignoreErrorTyp := len(ecls2) == 0 || ecls2 == "*"
+		if !ignoreErrorTyp && ecls2 == ecls { // error type weight: 10%
+			if epkg2 == "*" || epkg == epkg2 {
+				sol.Match = 0.1 // 10%
 			} else {
-				jemsg, _ := split(jerr.Message, '\n')
-				matches := lineMatchPercent(jemsg, e.Message) // error message weight: 90%
-				if ignoreErrorTyp {
-					sol.Match = matches // or when ignore error type, it provide 100% score weight
-				} else {
-					sol.Match += matches * 0.9
-				}
-			}
-			if sol.Match != 0 { // have any matches
-				matched = append(matched, sol)
+				sol.Match = 0.05 // 5%
 			}
 		}
-		jerr = jerr.CausedBy
+		if len(e.Message) == 0 { // when ignore error message, error type provide 100% score weight
+			sol.Match /= 10.0 / 100
+		} else {
+			jemsg, _ := split(jerr.Message, '\n')
+			matches := lineMatchPercent(jemsg, e.Message) // error message weight: 90%
+			if ignoreErrorTyp {
+				sol.Match = matches // or when ignore error type, it provide 100% score weight
+			} else {
+				sol.Match += matches * 0.9
+			}
+		}
+		if sol.Match != 0 { // have any matches
+			matched = append(matched, sol)
+		}
 	}
 	if matched == nil {
 		matched = make([]SolutionPossibility, 0)
@@ -129,17 +125,21 @@ func (a *Analyzer) DoLogStream(c context.Context, r io.Reader) (<-chan *ErrorRes
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					res := &ErrorResult{
-						Error: jerr,
-					}
-					var err error
-					if res.Matched, err = a.DoError(jerr); err != nil {
-						cancel(err)
-						return
-					}
-					select {
-					case result <- res:
-					case <-ctx.Done():
+					for jerr != nil {
+						res := &ErrorResult{
+							Error: jerr,
+						}
+						var err error
+						if res.Matched, err = a.DoError(jerr); err != nil {
+							cancel(err)
+							return
+						}
+						select {
+						case result <- res:
+						case <-ctx.Done():
+							return
+						}
+						jerr = jerr.CausedBy
 					}
 				}()
 			case err := <-errCh:
