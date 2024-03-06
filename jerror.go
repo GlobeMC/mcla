@@ -88,8 +88,8 @@ func parseJavaError0(line string, sc *lineScanner) (je *JavaError) {
 	} else {
 		je.Class, je.Message = line[:i], strings.TrimSpace(line[i+1:])
 	}
-	je.Stacktrace = parseStacktrace(sc)
 	je.LineNo = sc.Count()
+	je.Stacktrace = parseStacktrace(sc)
 	if line, ok := strings.CutPrefix(strings.TrimSpace(sc.Text()), "Caused by: "); ok {
 		je.CausedBy = parseJavaError0(line, sc)
 	}
