@@ -36,7 +36,7 @@ jobs:
         name: Setup Golang
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: '1.23.0'
       -
         name: Test
         run: go test -v .
@@ -63,7 +63,7 @@ jobs:
         name: Setup Tinygo
         uses: acifani/setup-tinygo@v1
         with:
-          tinygo-version: '0.30.0'
+          tinygo-version: '0.35.0'
       -
         name: Build wasm
         run: |
@@ -72,13 +72,13 @@ jobs:
           cp ./cmd/mcla_wasm/wasm_exec.js ./output/wasm_exec.js
       -
         name: Upload wasm output to artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: build-wasm-output
           path: output/mcla.wasm
       -
-        name: Upload tinygo wasm_exec to artifact
-        uses: actions/upload-artifact@v2
+        name: Upload wasm_exec to artifact
+        uses: actions/upload-artifact@v4
         with:
           name: build-wasm-exec-js
           path: output/wasm_exec.js
@@ -91,13 +91,13 @@ jobs:
     steps:
       -
         name: Download build-wasm output from artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: build-wasm-output
           path: output
       -
-        name: Download tinygo wasm_exec from artifact
-        uses: actions/download-artifact@v2
+        name: Download wasm_exec from artifact
+        uses: actions/download-artifact@v4
         with:
           name: build-wasm-exec-js
           path: output
@@ -122,13 +122,13 @@ jobs:
           ref: 'pages'
       -
         name: Download build-wasm output from artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: build-wasm-output
           path: .
       -
         name: Download tinygo wasm_exec from artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: build-wasm-exec-js
           path: .
