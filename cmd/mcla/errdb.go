@@ -22,6 +22,7 @@ func (e *HTTPStatusErr) Error() string {
 var ghRepoPrefix = "https://raw.githubusercontent.com/kmcsr/mcla-db-dev/main"
 
 var defaultErrDB = &ghdb.ErrDB{
+	Cache: ghdb.NewInMemoryCache(),
 	Fetch: func(path string) (io.ReadCloser, error) {
 		path, err := url.JoinPath(ghRepoPrefix, path)
 		if err != nil {
@@ -39,6 +40,4 @@ var defaultErrDB = &ghdb.ErrDB{
 	},
 }
 
-var defaultAnalyzer = &mcla.Analyzer{
-	DB: defaultErrDB,
-}
+var defaultAnalyzer = mcla.NewAnalyzer(defaultErrDB)

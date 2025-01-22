@@ -1,11 +1,15 @@
 package mcla
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
+	"regexp"
 	"sync"
 	"time"
+
+	"github.com/kmcsr/go-ringbuf"
 )
 
 type SolutionPossibility struct {
@@ -29,11 +33,14 @@ type Analyzer struct {
 	errMux        sync.RWMutex
 	lastUpdateErr time.Time
 	cachedErrors  []*ErrorDesc
+
+	recentMixinLogs *ringbuf.RingBuffer[string]
 }
 
 func NewAnalyzer(db ErrorDB) (a *Analyzer) {
 	return &Analyzer{
-		DB: db,
+		DB:              db,
+		recentMixinLogs: ringbuf.NewRingBuffer[string](64),
 	}
 }
 
@@ -57,22 +64,29 @@ func (a *Analyzer) updateErrorsLocked() (err error) {
 }
 
 func (a *Analyzer) getErrors() []*ErrorDesc {
-	{
-		a.errMux.RLock()
-		needUpdate := a.lastUpdateErr.IsZero() || time.Now().After(a.lastUpdateErr.Add(time.Hour))
-		a.errMux.RUnlock()
-		if needUpdate {
-			a.errMux.Lock()
-			if a.lastUpdateErr.IsZero() || time.Now().After(a.lastUpdateErr.Add(time.Hour)) {
-				a.updateErrorsLocked()
-			}
-			a.errMux.Unlock()
+	a.errMux.RLock()
+	needUpdate := a.lastUpdateErr.IsZero() || time.Now().After(a.lastUpdateErr.Add(time.Hour))
+	a.errMux.RUnlock()
+	if needUpdate {
+		a.errMux.Lock()
+		if a.lastUpdateErr.IsZero() || time.Now().After(a.lastUpdateErr.Add(time.Hour)) {
+			a.updateErrorsLocked()
 		}
+		a.errMux.Unlock()
 	}
 	return a.cachedErrors
 }
 
 func (a *Analyzer) DoError(jerr *JavaError) (matched []SolutionPossibility, err error) {
+	e, _ := a.HardCodedChecks(jerr)
+	if e != nil {
+		return []SolutionPossibility{
+			SolutionPossibility{
+				ErrorDesc: e,
+				Match:     1,
+			},
+		}, nil
+	}
 	epkg, ecls := rsplit(jerr.Class, '.')
 	for _, e := range a.getErrors() {
 		sol := SolutionPossibility{
@@ -114,7 +128,9 @@ func (a *Analyzer) DoLogStream(c context.Context, r io.Reader) (<-chan *ErrorRes
 	go func() {
 		defer close(result)
 		var wg sync.WaitGroup
-		resCh, errCh := ScanJavaErrorsIntoChan(r)
+		recorder := a.newLogRecorder()
+		defer recorder.Close()
+		resCh, errCh := ScanJavaErrorsIntoChan(io.TeeReader(r, recorder))
 	LOOP:
 		for {
 			select {
@@ -152,4 +168,55 @@ func (a *Analyzer) DoLogStream(c context.Context, r io.Reader) (<-chan *ErrorRes
 		wg.Wait()
 	}()
 	return result, ctx
+}
+
+type logRecorder struct {
+	a      *Analyzer
+	closed bool
+	buf    []byte
+}
+
+func (a *Analyzer) newLogRecorder() io.WriteCloser {
+	a.recentMixinLogs.Clear()
+	return &logRecorder{
+		a: a,
+	}
+}
+
+func (r *logRecorder) Write(buf []byte) (int, error) {
+	r.buf = append(r.buf, buf...)
+	i := 0
+	for  {
+		j := i + bytes.IndexByte(r.buf[i:], '\n')
+		if j < i {
+			break
+		}
+		r.record(r.buf[i:j])
+		i = j + 1
+	}
+	if i > 0 {
+		n := copy(r.buf, r.buf[i:])
+		r.buf = r.buf[:n]
+	}
+	return len(buf), nil
+}
+
+func (r *logRecorder) Close() error {
+	if r.closed {
+		return nil
+	}
+	r.closed = true
+	r.buf = nil
+	return nil
+}
+
+var (
+	mixinLogRe = regexp.MustCompile(`^\[[^\]]*\]\s*\[[^\]]*\]\s*\[mixin/[^\]]*\]:\s*(.+)$`)
+)
+
+func (r *logRecorder) record(buf []byte) {
+	matches := mixinLogRe.FindSubmatch(buf)
+	if matches != nil {
+		r.a.recentMixinLogs.Push((string)(matches[1]))
+	}
 }

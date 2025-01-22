@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	javaErrorMatcher = regexp.MustCompile(`^\s*(?:\s*Exception in thread "[^"]+"\s+)?([\w\d$_]+(?:\.[\w\d$_]+)+):\s+(.*)$`)
-	stackInfoMatcher = regexp.MustCompile(`^\s*at\s+([\w\d$_]+(?:\.[\w\d$_]+)+)\.([\w\d$_<>]+)`)
+	javaErrorMatcher = regexp.MustCompile(`^\s*(?:Exception in thread "[^"]+"\s+)?([\w\d$_]+(?:\.[\w\d$_]+)+)(?::\s+(.*))?$`)
+	stackInfoMatcher = regexp.MustCompile(`^\s*at\s+(?:.+/)?([\w\d$_]+(?:\.[\w\d$_]+)+)\.([\w\d$_<>]+)(?:\s*\((.+)\))?`)
 )
 
 type (

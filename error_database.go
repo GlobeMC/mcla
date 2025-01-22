@@ -1,9 +1,10 @@
 package mcla
 
 type ErrorDesc struct {
-	Error     string `json:"error"`
-	Message   string `json:"message"`
-	Solutions []int  `json:"solutions"`
+	Error     string         `json:"error"`
+	Message   string         `json:"message"`
+	Solutions []int          `json:"solutions"`
+	Data      map[string]any `json:"data,omitempty"`
 }
 
 type SolutionDesc struct {
