@@ -6,6 +6,10 @@ on:
     branches:
       - 'dev'
 
+concurrency:
+  group: build-dev
+  cancel-in-progress: true
+
 jobs:
   build-wasm:
     runs-on: ubuntu-latest
