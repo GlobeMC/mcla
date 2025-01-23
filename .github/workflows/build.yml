@@ -59,16 +59,22 @@ jobs:
       -
         name: Action Checkout
         uses: actions/checkout@v3
+      # -
+      #   name: Setup Tinygo
+      #   uses: acifani/setup-tinygo@v1
+      #   with:
+      #     tinygo-version: '0.35.0'
       -
-        name: Setup Tinygo
-        uses: acifani/setup-tinygo@v1
+        name: Setup Golang
+        uses: actions/setup-go@v4
         with:
-          tinygo-version: '0.35.0'
+          go-version: '1.23.0'
       -
         name: Build wasm
         run: |
           mkdir output
-          /usr/bin/env bash ./cmd/mcla_wasm/build.sh -o ./output/mcla.wasm -opt=z -no-debug -ldflags="-X 'main.version=${GITHUB_REF#refs/*/}'"
+          # /usr/bin/env bash ./cmd/mcla_wasm/build.sh -o ./output/mcla.wasm -opt=z -no-debug -ldflags="-X 'main.version=${GITHUB_REF#refs/*/}'"
+          /usr/bin/env bash ./cmd/mcla_wasm/build.sh -o ./output/mcla.wasm -trimpath -ldflags="-s -w -X 'main.version=${GITHUB_REF#refs/*/}'"
           cp ./cmd/mcla_wasm/wasm_exec.js ./output/wasm_exec.js
       -
         name: Upload wasm output to artifact
