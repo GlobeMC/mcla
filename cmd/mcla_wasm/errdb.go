@@ -135,6 +135,4 @@ var defaultErrDB = &ghdb.ErrDB{
 	},
 }
 
-var defaultAnalyzer = &mcla.Analyzer{
-	DB: defaultErrDB,
-}
+var defaultAnalyzer = mcla.NewAnalyzer(defaultErrDB)
